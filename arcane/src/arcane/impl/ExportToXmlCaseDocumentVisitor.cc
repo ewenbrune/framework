@@ -30,7 +30,7 @@ namespace Arcane
 /*!
  * \brief Visiteur pour exporter en JSON les valeurs du jeu de données.
  */
-class ExportToJsonCaseDocumentVisitor
+class ExportToXmlCaseDocumentVisitor
 : public AbstractCaseDocumentVisitor
 {
  public:
@@ -40,8 +40,8 @@ class ExportToJsonCaseDocumentVisitor
     int m_n;
   };
  public:
-  ExportToJsonCaseDocumentVisitor(ITraceMng* tm,const String& lang)
-  : m_trace_mng(tm), m_lang(lang)
+  ExportToXmlCaseDocumentVisitor(std::ostringstream* ss, const String& lang)
+  : m_ss(ss) , m_lang(lang)
   {
   }
   void beginVisit(const ICaseOptions* opt) override;
@@ -101,11 +101,11 @@ class ExportToJsonCaseDocumentVisitor
     m_stream = std::ostringstream();
     std::ostream& o = m_stream;
     _printOption(co,o);
-    m_trace_mng->info() << m_stream.str();
+    *m_ss << m_stream.str() << std::endl;
   }
   void _printOption(const CaseOptionBase* co,std::ostream& o);
  private:
-  ITraceMng* m_trace_mng;
+  std::ostringstream* m_ss;
   String m_lang;
   std::ostringstream m_stream;
   int m_indent = 0;
@@ -116,7 +116,7 @@ class ExportToJsonCaseDocumentVisitor
 /*---------------------------------------------------------------------------*/
 
 inline std::ostream&
-operator<< (std::ostream& o, const ExportToJsonCaseDocumentVisitor::Indent& indent)
+operator<< (std::ostream& o, const ExportToXmlCaseDocumentVisitor::Indent& indent)
 {
   for( int i=0; i<indent.m_n; ++i )
     o << ' ';
@@ -126,7 +126,7 @@ operator<< (std::ostream& o, const ExportToJsonCaseDocumentVisitor::Indent& inde
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
-void ExportToJsonCaseDocumentVisitor::
+void ExportToXmlCaseDocumentVisitor::
 beginVisit(const ICaseOptions* opt)
 {
   String service_name;
@@ -135,36 +135,37 @@ beginVisit(const ICaseOptions* opt)
   }
   else {
     IServiceInfo* service = opt->caseServiceInfo();
-    if (service)
-      m_trace_mng->info() << "WARNING: service_name not handled name=\""+ service->localName() + "\"";
+    if (service) {}
   }
   m_current_service_name = String();
-  m_trace_mng->info() << Indent(m_indent) << "{" << opt->translatedName(m_lang) << service_name << ">";
+
+  *m_ss << Indent(m_indent) << "<" << opt->rootTagTrueName() << service_name << ">" << std::endl;
   ++m_indent;
 }
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
-void ExportToJsonCaseDocumentVisitor::
+void ExportToXmlCaseDocumentVisitor::
 endVisit(const ICaseOptions* opt)
 {
   --m_indent;
-  m_trace_mng->info() << Indent(m_indent) << "</" << opt->translatedName(m_lang) << ">";
+  *m_ss << Indent(m_indent) << "</" << opt->rootTagTrueName() << ">" << std::endl;
 }
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
-void ExportToJsonCaseDocumentVisitor::
+void ExportToXmlCaseDocumentVisitor::
 _printOption(const CaseOptionBase* co,std::ostream& o)
 {
   std::ios_base::fmtflags f = o.flags(std::ios::left);
   o << " ";
   o << Indent(m_indent);
-  o.width(40-m_indent);
-  o << co->translatedName(m_lang);
+  //o.width(40-m_indent);
+  o << "<" << co->trueName() << ">";
   co->print(m_lang,o);
+  o << "</" << co->trueName() << ">";
   ICaseFunction* func = co->function();
   if (func){
     o << " (fonction: " << func->name() << ")";
@@ -176,9 +177,9 @@ _printOption(const CaseOptionBase* co,std::ostream& o)
 /*---------------------------------------------------------------------------*/
 
 extern "C++" std::unique_ptr<ICaseDocumentVisitor>
-createExportToJsonCaseDocumentVisitor(ITraceMng* tm,const String& lang)
+createExportToXmlCaseDocumentVisitor(std::ostringstream* ss,const String& lang)
 {
-  return std::make_unique<ExportToJsonCaseDocumentVisitor>(tm,lang);
+  return std::make_unique<ExportToXmlCaseDocumentVisitor>(ss,lang);
 }
 
 /*---------------------------------------------------------------------------*/

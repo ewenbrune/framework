@@ -50,6 +50,9 @@
 
 #include "arcane/impl/CaseDocumentLangTranslator.h"
 
+#include <fstream>
+#include <sstream>
+
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
@@ -63,7 +66,7 @@ extern "C++" std::unique_ptr<ICaseDocumentVisitor>
 createPrintCaseDocumentVisitor(ITraceMng* tm,const String& lang);
 
 extern "C++" std::unique_ptr<ICaseDocumentVisitor>
-createExportToJsonCaseDocumentVisitor(ITraceMng* tm,const String& lang);
+createExportToXmlCaseDocumentVisitor(std::ostringstream* ss,const String& lang);
 
 extern "C++" ICaseDocumentFragment*
 arcaneCreateCaseDocumentFragment(ITraceMng* tm,IXmlDocumentHolder* document);
@@ -815,9 +818,18 @@ void CaseMng::
 printOptions()
 {
   String lang = _noNullCaseDocument()->fragment()->language();
+  String codename = _noNullCaseDocument()->codeName();
+  String codeVersion = _noNullCaseDocument()->codeVersion();
+  std::ostringstream* ss = new std::ostringstream();
+
+  *ss << "<?xml version='1.0'?>" << std::endl;
+  *ss << "<case codeversion=\"" << codeVersion
+    << "\" codename=\"" << codename
+    << "\" xml:lang=\"" << lang << "\">" << std::endl;
 
   auto v = createPrintCaseDocumentVisitor(traceMng(),lang);
-  auto json = createExportToJsonCaseDocumentVisitor(traceMng(),lang);
+  auto xml = createExportToXmlCaseDocumentVisitor(ss,lang);
+
   info() << "-----------------------------------------------------";
   info();
   info() << "Input data values:";
@@ -826,13 +838,36 @@ printOptions()
   // nouvelles versions de Arcane.
   // TODO: vérifier que le nouvel affichage est identique à l'ancien pour
   // la plupart des options.
-  const bool use_old = false; //true
+  const bool use_old = true;
   for( ICaseOptions* co : CaseOptionsFilterUsed(m_case_options_list)){
     if (use_old)
       co->printChildren(lang,0);
-    else
-      co->visit(json.get());
+    else {
+      co->visit(v.get());
+    }   
+    co->visit(xml.get());
   }
+
+  // Moche
+  const void * address = static_cast<const void*>(this);
+  std::stringstream uniq;
+  uniq << address;  
+  std::string name = uniq.str(); 
+
+  std::ofstream out_file("/tmp/mayhco" + name + ".xml"); 
+  if (!out_file) {
+    delete ss;
+    ss=nullptr;
+    pfatal() << "Error: Could not open file to export xml";
+  }
+
+  *ss << "</case>\n";
+  out_file << ss->str();
+  out_file.close();
+  delete ss;
+  ss=nullptr;
+
+  pfatal() << "Just for parsing config";
 
   info() << "-----------------------------------------------------";
 }

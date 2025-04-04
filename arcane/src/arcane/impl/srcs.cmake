@@ -70,7 +70,7 @@ set( ARCANE_SOURCES
   ParallelTopology.cc
   ParallelTopology.h
   PrintCaseDocumentVisitor.cc
-  ExportToJsonCaseDocumentVisitor.cc
+  ExportToXmlCaseDocumentVisitor.cc
   PropertyMng.cc
   SequentialParallelMng.cc
   SequentialParallelMng.h
