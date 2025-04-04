@@ -62,6 +62,9 @@ namespace Arcane
 extern "C++" std::unique_ptr<ICaseDocumentVisitor>
 createPrintCaseDocumentVisitor(ITraceMng* tm,const String& lang);
 
+extern "C++" std::unique_ptr<ICaseDocumentVisitor>
+createExportToJsonCaseDocumentVisitor(ITraceMng* tm,const String& lang);
+
 extern "C++" ICaseDocumentFragment*
 arcaneCreateCaseDocumentFragment(ITraceMng* tm,IXmlDocumentHolder* document);
 
@@ -814,6 +817,7 @@ printOptions()
   String lang = _noNullCaseDocument()->fragment()->language();
 
   auto v = createPrintCaseDocumentVisitor(traceMng(),lang);
+  auto json = createExportToJsonCaseDocumentVisitor(traceMng(),lang);
   info() << "-----------------------------------------------------";
   info();
   info() << "Input data values:";
@@ -822,12 +826,12 @@ printOptions()
   // nouvelles versions de Arcane.
   // TODO: vérifier que le nouvel affichage est identique à l'ancien pour
   // la plupart des options.
-  const bool use_old = true;
+  const bool use_old = false; //true
   for( ICaseOptions* co : CaseOptionsFilterUsed(m_case_options_list)){
     if (use_old)
       co->printChildren(lang,0);
     else
-      co->visit(v.get());
+      co->visit(json.get());
   }
 
   info() << "-----------------------------------------------------";
