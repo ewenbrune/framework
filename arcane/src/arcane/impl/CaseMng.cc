@@ -50,6 +50,8 @@
 
 #include "arcane/impl/CaseDocumentLangTranslator.h"
 
+#include "arcane/utils/CommandLineArguments.h"
+
 #include <fstream>
 #include <sstream>
 
@@ -167,6 +169,7 @@ class CaseMng
   void readFunctions() override;
   void readOptions(bool is_phase1) override;
   void printOptions() override;
+  void exportOptions(const String& format, const String& exportDirectory);
   void registerOptions(ICaseOptions*) override;
   void unregisterOptions(ICaseOptions*) override;
   ICaseFunction* findFunction(const String& name) const override;
@@ -814,21 +817,63 @@ _readOptions(bool is_phase1)
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
-void CaseMng::
-printOptions()
+void CaseMng::exportOptions(const String& format, const String& exportDirectory)
 {
   String lang = _noNullCaseDocument()->fragment()->language();
   String codename = _noNullCaseDocument()->codeName();
   String codeVersion = _noNullCaseDocument()->codeVersion();
   std::ostringstream* ss = new std::ostringstream();
+  
 
-  *ss << "<?xml version='1.0'?>" << std::endl;
-  *ss << "<case codeversion=\"" << codeVersion
+  if(format == "xml") {
+    *ss << "<?xml version='1.0'?>" << std::endl;
+    *ss << "<case codeversion=\"" << codeVersion
     << "\" codename=\"" << codename
     << "\" xml:lang=\"" << lang << "\">" << std::endl;
 
+    auto xml = createExportToXmlCaseDocumentVisitor(ss,lang);
+
+    for( ICaseOptions* co : CaseOptionsFilterUsed(m_case_options_list)) {
+      co->visit(xml.get());
+    }
+
+    const void * address = static_cast<const void*>(this);
+    String directory = exportDirectory.null() ? "/tmp/" : exportDirectory;
+    directory = directory.endsWith("/") ? directory : directory+"/";
+
+    std::stringstream exportPathStream;
+    exportPathStream << directory;
+    exportPathStream << codename << "_" << address << ".xml";
+    std::string exportPath = exportPathStream.str(); 
+
+    info() << "Export directory: " << exportDirectory;
+
+    std::ofstream out_file(exportPath); 
+    if (!out_file) {
+      delete ss;
+      ss=nullptr;
+      pfatal() << "Error: Could not open directory to export xml";
+    }
+
+    *ss << "</case>\n";
+    out_file << ss->str();
+    out_file.close();
+    delete ss;
+    ss=nullptr;
+
+  } else {
+    perror() << "Error: unkown export format (supported formats: xml)";
+  }
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+void CaseMng::
+printOptions()
+{
+  String lang = _noNullCaseDocument()->fragment()->language();
   auto v = createPrintCaseDocumentVisitor(traceMng(),lang);
-  auto xml = createExportToXmlCaseDocumentVisitor(ss,lang);
 
   info() << "-----------------------------------------------------";
   info();
@@ -844,30 +889,8 @@ printOptions()
       co->printChildren(lang,0);
     else {
       co->visit(v.get());
-    }   
-    co->visit(xml.get());
+    }
   }
-
-  // Moche
-  const void * address = static_cast<const void*>(this);
-  std::stringstream uniq;
-  uniq << address;  
-  std::string name = uniq.str(); 
-
-  std::ofstream out_file("/tmp/mayhco" + name + ".xml"); 
-  if (!out_file) {
-    delete ss;
-    ss=nullptr;
-    pfatal() << "Error: Could not open file to export xml";
-  }
-
-  *ss << "</case>\n";
-  out_file << ss->str();
-  out_file.close();
-  delete ss;
-  ss=nullptr;
-
-  pfatal() << "Just for parsing config";
 
   info() << "-----------------------------------------------------";
 }

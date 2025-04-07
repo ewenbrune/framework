@@ -93,6 +93,9 @@ class ICaseMng
   //! Affiche les valeurs des options
   virtual void printOptions() = 0;
 
+  //! Exporte les options dans un fichier
+  virtual void exportOptions(const String& format, const String& exportDirectory) = 0;
+
   //! Lit les tables du jeu de donnée.
   virtual void readFunctions() = 0;
 

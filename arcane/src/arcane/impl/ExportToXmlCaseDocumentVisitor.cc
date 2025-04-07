@@ -63,8 +63,18 @@ class ExportToXmlCaseDocumentVisitor
     _printOption(opt);
   }
   void applyVisitor(const CaseOptionEnum* opt) override
-  {
-    _printOption(opt);
+  {    
+    std::ios_base::fmtflags f = m_ss->flags(std::ios::left);
+    *m_ss << " ";
+    *m_ss << "<" << opt->trueName() << ">";
+    *m_ss << opt->element().value();
+    *m_ss << "</" << opt->trueName() << ">";
+    ICaseFunction* func = opt->function();
+    if (func){
+      *m_ss << " (fonction: " << func->name() << ")";
+    }
+    m_ss->flags(f);
+    *m_ss << std::endl;
   }
   void applyVisitor(const CaseOptionMultiEnum* opt) override
   {
@@ -104,6 +114,7 @@ class ExportToXmlCaseDocumentVisitor
     *m_ss << m_stream.str() << std::endl;
   }
   void _printOption(const CaseOptionBase* co,std::ostream& o);
+  //void _printOption(const CaseOptionEnum* co,std::ostream& o);
  private:
   std::ostringstream* m_ss;
   String m_lang;

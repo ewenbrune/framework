@@ -23,6 +23,8 @@
 #include "arcane/utils/Array.h"
 #include "arcane/utils/ValueConvert.h"
 #include "arcane/utils/JSONWriter.h"
+#include "arcane/utils/ApplicationInfo.h"
+#include "arcane/utils/CommandLineArguments.h"
 
 #include "arcane/core/IApplication.h"
 #include "arcane/core/ISession.h"
@@ -180,6 +182,14 @@ initCase(ISubDomain* sub_domain,bool is_continue)
     // Lecture du jeu de donnée (phase2)
     case_mng->readOptions(false);
     case_mng->printOptions();
+    
+    // Ewen
+    String exportFormat = case_mng->application()->applicationInfo().commandLineArguments().getParameter("export_format");
+    String exportPath = case_mng->application()->applicationInfo().commandLineArguments().getParameter("export_output_directory");
+    if(!exportFormat.null()) {
+      case_mng->exportOptions(exportFormat, exportPath);
+    }
+
     // Effectue le partitionnement initial ou de reprise
     sub_domain->doInitMeshPartition();
     loop_mng->execInitEntryPoints(is_continue);

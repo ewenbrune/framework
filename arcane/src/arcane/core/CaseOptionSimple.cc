@@ -784,8 +784,12 @@ template<typename T> void CaseOptionMultiSimpleT<T>::
 print(const String& lang,std::ostream& o) const
 {
   ARCANE_UNUSED(lang);
-  for( Integer i=0; i<this->size(); ++i )
-    o << this->_ptr()[i] << " ";
+  for( Integer i=0; i<this->size(); ++i)
+    if(i == this->size()-1)
+      o << this->_ptr()[i];
+    else
+      o << this->_ptr()[i] << " ";
+
 }
 
 /*---------------------------------------------------------------------------*/
