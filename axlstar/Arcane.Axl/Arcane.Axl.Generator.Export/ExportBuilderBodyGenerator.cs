@@ -12,9 +12,9 @@ namespace Arcane.Axl
    * Classe implémentant le Design Pattern du visiteur pour générer le code C++
    * du corps du constructeur de la classe CaseOptions.
    */
-  public class PythonBuilderBodyGenerator : IOptionInfoVisitor
+  public class ExportBuilderBodyGenerator : IOptionInfoVisitor
   {
-    public PythonBuilderBodyGenerator(TextWriter stream, int indent_level = 0)
+    public ExportBuilderBodyGenerator(TextWriter stream, int indent_level = 0)
     {
       m_stream = stream;
       m_indent_level = indent_level;
@@ -26,16 +26,16 @@ namespace Arcane.Axl
     
     public virtual void VisitExtended(ExtendedOptionInfo info)
     {
-      string var_name = PythonCodeGenerator.ToFuncName(info.Name);
-      PythonCodeGenerator.writeNameTranslations(m_stream,
+      string var_name = ExportCodeGenerator.ToFuncName(info.Name);
+      ExportCodeGenerator.writeNameTranslations(m_stream,
                                              info.m_alternative_names,
                                              var_name);
     }
     
     public virtual void VisitEnumeration(EnumerationOptionInfo info)
     {
-      string var_name = PythonCodeGenerator.ToFuncName(info.Name);
-      PythonCodeGenerator.writeNameTranslations(m_stream,
+      string var_name = ExportCodeGenerator.ToFuncName(info.Name);
+      ExportCodeGenerator.writeNameTranslations(m_stream,
                                              info.m_alternative_names,
                                              var_name);
       
@@ -45,10 +45,10 @@ namespace Arcane.Axl
         m_stream.Write(" = new Arcane::CaseOptionEnumValue(Arcane::String(\"");
         m_stream.Write(ev.Name + "\")");
         m_stream.Write(",(int)(" + ev.GeneratedValue + "));\n  ");
-        PythonCodeGenerator.writeNameTranslations(m_stream,
+        ExportCodeGenerator.writeNameTranslations(m_stream,
                                                ev.m_alternative_names,
                                                "(*x)");
-        m_stream.Write("    " + PythonCodeGenerator.ToFuncName(info.Name)
+        m_stream.Write("    " + ExportCodeGenerator.ToFuncName(info.Name)
                        + ".addEnumValue(x,false);\n");
         m_stream.Write("  }\n");
       }
@@ -56,24 +56,24 @@ namespace Arcane.Axl
     
     public virtual void VisitScript(ScriptOptionInfo info)
     {
-      string var_name = PythonCodeGenerator.ToFuncName(info.Name);
-      PythonCodeGenerator.writeNameTranslations(m_stream,
+      string var_name = ExportCodeGenerator.ToFuncName(info.Name);
+      ExportCodeGenerator.writeNameTranslations(m_stream,
                                              info.m_alternative_names,
                                              var_name);
     }
     
     public virtual void VisitSimple(SimpleOptionInfo info)
     {
-      string var_name = PythonCodeGenerator.ToFuncName(info.Name);
-      PythonCodeGenerator.writeNameTranslations(m_stream,
+      string var_name = ExportCodeGenerator.ToFuncName(info.Name);
+      ExportCodeGenerator.writeNameTranslations(m_stream,
                                              info.m_alternative_names,
                                              var_name);
     }
     
     public virtual void VisitServiceInstance(ServiceInstanceOptionInfo info)
     {
-      string var_name = PythonCodeGenerator.ToFuncName(info.Name);
-      PythonCodeGenerator.writeNameTranslations(m_stream,
+      string var_name = ExportCodeGenerator.ToFuncName(info.Name);
+      ExportCodeGenerator.writeNameTranslations(m_stream,
                                              info.m_alternative_names,
                                              var_name);
     }

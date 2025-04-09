@@ -12,9 +12,9 @@ namespace Arcane.Axl
    * Classe implémentant le Design Pattern du visiteur pour générer le code C++
    * se trouvant avant le corps du constructeur dans le fichier .cc.
    */
-  public class PythonOptionBuilderGenerator : IOptionInfoVisitor
+  public class ExportOptionBuilderGenerator : IOptionInfoVisitor
   {
-    public PythonOptionBuilderGenerator(TextWriter stream,
+    public ExportOptionBuilderGenerator(TextWriter stream,
                                      string parent_list,
                                      string pos, int indent_level=0)
     {
@@ -27,7 +27,7 @@ namespace Arcane.Axl
     public virtual void VisitComplex(ComplexOptionInfo info)
     {
       if (info.Name != null) {
-        string var_name = PythonCodeGenerator.ToFuncName(info.Name);
+        string var_name = ExportCodeGenerator.ToFuncName(info.Name);
         m_stream.Write(", " + var_name + "(cm," + m_parent_list);
         m_stream.Write(",\"" + info.Name + "\"");
         m_stream.Write(", " + m_pos);
@@ -79,7 +79,7 @@ namespace Arcane.Axl
     
     private void _visitOptionInfo(Option info)
     {
-      string var_name = PythonCodeGenerator.ToFuncName(info.Name);
+      string var_name = ExportCodeGenerator.ToFuncName(info.Name);
       m_stream.Write(new string(' ', m_indent_level * 4) + "self." + var_name + " = None #Arcane.CaseOptionBuildInfo(cm,");
       m_stream.Write(m_parent_list);
       m_stream.Write(",\"" + info.Name + "\"," + m_pos);

@@ -9,7 +9,7 @@ using System.Collections.Generic;
 namespace Arcane.Axl
 {
   //! Classe utilitaire pour la génération C++
-  public static class PythonUtils
+  public static class ExportUtils
   {
     class BasicTypeInfo
     {
@@ -31,7 +31,7 @@ namespace Arcane.Axl
     };
 
     static Dictionary<SimpleOptionInfoType,BasicTypeInfo> m_simple_options;
-    static PythonUtils ()
+    static ExportUtils ()
     {
       m_simple_options = new Dictionary<SimpleOptionInfoType, BasicTypeInfo>();
       _Add (SimpleOptionInfoType.TypeBool,"Bool");

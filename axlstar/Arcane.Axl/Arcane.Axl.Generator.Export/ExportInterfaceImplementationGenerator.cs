@@ -11,9 +11,9 @@ namespace Arcane.Axl
   /**
    * Visiteur pour implémenter les méthodes lorsqu'une option dérive d'une interface.
    */
-  public class PythonInterfaceImplementationGenerator : IOptionInfoVisitor
+  public class ExportInterfaceImplementationGenerator : IOptionInfoVisitor
   {
-    public PythonInterfaceImplementationGenerator (TextWriter stream)
+    public ExportInterfaceImplementationGenerator (TextWriter stream)
     {
       m_stream = stream;
     }
@@ -30,20 +30,20 @@ namespace Arcane.Axl
       // nom de l'interface de l'autre option
       //if (info.ReferenceType!=null)
         //it_type = info.ReferenceType.InterfaceType;
-      string interface_type = PythonUtils.ConvertType(it_type);
+      string interface_type = ExportUtils.ConvertType(it_type);
       if (String.IsNullOrEmpty(interface_type))
         // Ne génère rien dans ce cas 
         return;
 
       if (ref_info.IsMulti){
-        string instance_name = PythonCodeGenerator.ToFuncName(info.Name);
-        string func_name = PythonCodeGenerator.ToClassName(info.Name);
+        string instance_name = ExportCodeGenerator.ToFuncName(info.Name);
+        string func_name = ExportCodeGenerator.ToClassName(info.Name);
         m_stream.Write ("  virtual Arcane::ConstArrayView< "+interface_type+"*> get"+func_name+"(){ return "+instance_name+"._interface(); }\n");
       }
       else{
         string return_type_name = interface_type + "*";
-        string instance_name = PythonCodeGenerator.ToFuncName(info.Name);
-        string func_name = PythonCodeGenerator.ToClassName(info.Name);
+        string instance_name = ExportCodeGenerator.ToFuncName(info.Name);
+        string func_name = ExportCodeGenerator.ToClassName(info.Name);
         m_stream.Write ("  virtual "+return_type_name+" get"+func_name+"(){ return "+instance_name+"._interface(); }\n");
         if (info.IsOptional) {
           m_stream.Write ("  virtual bool has"+func_name+"() const { return "+instance_name+".isPresent(); }\n");
@@ -52,7 +52,7 @@ namespace Arcane.Axl
     }
     public virtual void VisitExtended(ExtendedOptionInfo info)
     {
-      string qtn = PythonUtils.ConvertType(info.Type);
+      string qtn = ExportUtils.ConvertType(info.Type);
       if (info.IsMulti){
         _WriteMethod("Arcane::ConstArrayView< "+qtn+ " >",info.Name,"",false);
       }
@@ -61,7 +61,7 @@ namespace Arcane.Axl
     }
     public virtual void VisitEnumeration(EnumerationOptionInfo info)
     {
-      string qtn = PythonUtils.ConvertType(info.Type);
+      string qtn = ExportUtils.ConvertType(info.Type);
       if (info.IsMulti){
         _WriteMethod("Arcane::ConstArrayView< "+qtn+ " >",info.Name,"",false);
       }
@@ -72,17 +72,17 @@ namespace Arcane.Axl
     public virtual void VisitSimple(SimpleOptionInfo info)
     {
       if (info.IsMulti) {
-        string qtn = PythonUtils.BasicTypeQualifiedName(info.SimpleType);
+        string qtn = ExportUtils.BasicTypeQualifiedName(info.SimpleType);
         _WriteMethod ("Arcane::ConstArrayView< " + qtn + " >", info.Name, "()", false);
       } else {
-        string qtn = PythonUtils.ReturnTypeQualifiedName (info.SimpleType);
+        string qtn = ExportUtils.ReturnTypeQualifiedName (info.SimpleType);
         _WriteMethod (qtn, info.Name, "()", info.IsOptional);
       }
     }
 
     public virtual void VisitServiceInstance(ServiceInstanceOptionInfo info)
     {
-      string qtn = PythonUtils.ConvertType(info.Type)+"*";
+      string qtn = ExportUtils.ConvertType(info.Type)+"*";
       if (info.IsMulti){
         _WriteMethod("Arcane::ConstArrayView< "+qtn+ " >",info.Name,"",false);
       }
@@ -92,8 +92,8 @@ namespace Arcane.Axl
 
     void _WriteMethod(string return_type_name,string option_name,string call_op,bool is_optional)
     {
-      string instance_name = PythonCodeGenerator.ToFuncName(option_name);
-      string func_name = PythonCodeGenerator.ToClassName(option_name);
+      string instance_name = ExportCodeGenerator.ToFuncName(option_name);
+      string func_name = ExportCodeGenerator.ToClassName(option_name);
       m_stream.Write ("  virtual "+return_type_name+" get"+func_name+"(){ return "+instance_name+call_op+"; }\n");
       if (is_optional)
         m_stream.Write ("  virtual bool has"+func_name+"() const { return "+instance_name+".isPresent(); }\n");

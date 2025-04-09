@@ -12,9 +12,9 @@ namespace Arcane.Axl
    * Classe implémentant le Design Pattern du visiteur pour générer le code C++ de
    * déclaration des variables dans le fichier .h.
    */
-  public class PythonVariableDefinitionGenerator : IOptionInfoVisitor
+  public class ExportVariableDefinitionGenerator : IOptionInfoVisitor
   {
-    public PythonVariableDefinitionGenerator(TextWriter stream)
+    public ExportVariableDefinitionGenerator(TextWriter stream)
     {
       m_stream = stream;
     }
@@ -56,7 +56,7 @@ namespace Arcane.Axl
     public virtual void VisitSimple(SimpleOptionInfo info)
     {
       string typeT_name = string.Empty;
-      string class_name = PythonUtils.BasicTypeName(info.SimpleType);
+      string class_name = ExportUtils.BasicTypeName(info.SimpleType);
       if (info.SimpleType==SimpleOptionInfoType.TypeBool){
         typeT_name = "bool";
       }
@@ -64,10 +64,10 @@ namespace Arcane.Axl
       if (info.IsMulti)
         if (String.IsNullOrEmpty(typeT_name))
         m_stream.Write("Arcane::CaseOptionMultiSimpleT< Arcane::{0} >   {1};\n",
-                         class_name, PythonCodeGenerator.ToFuncName(info.Name));
+                         class_name, ExportCodeGenerator.ToFuncName(info.Name));
       else
         m_stream.Write("Arcane::CaseOptionMultiSimpleT< {0} >   {1};\n",
-                       typeT_name, PythonCodeGenerator.ToFuncName(info.Name));
+                       typeT_name, ExportCodeGenerator.ToFuncName(info.Name));
       else
         _visitOptionInfo(info, class_name);
     }
@@ -96,7 +96,7 @@ namespace Arcane.Axl
         m_stream.Write("  Arcane::CaseOption");
       else
         m_stream.Write("  CaseOption");
-      m_stream.Write(class_name + "   " + PythonCodeGenerator.ToFuncName(info.Name) + ";\n");
+      m_stream.Write(class_name + "   " + ExportCodeGenerator.ToFuncName(info.Name) + ";\n");
     }
     
     private TextWriter m_stream;

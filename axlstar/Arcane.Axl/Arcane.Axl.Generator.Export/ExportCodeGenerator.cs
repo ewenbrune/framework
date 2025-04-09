@@ -20,11 +20,11 @@ namespace Arcane.Axl
   /**
    * Classe de base des classes de génération de code en C#. 
    */
-  public abstract class PythonCodeGenerator : CodeGenerator
+  public abstract class ExportCodeGenerator : CodeGenerator
   {
     protected static string arcane_scope = "Arcane.";
 
-    protected PythonCodeGenerator(string path,string output_path) : base(path,output_path)
+    protected ExportCodeGenerator(string path,string output_path) : base(path,output_path)
     {
     }
 

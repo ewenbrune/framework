@@ -3,7 +3,7 @@
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
-﻿/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
 /*                                                                           */
 /* Programme principal du script de génération de code à partir de           */
 /* fichiers AXL.                                                             */
@@ -110,8 +110,8 @@ namespace Axlstar.Axl
         else
           generator = new CppServiceBaseGenerator(m_include_path, m_output_path, parser.Service);
         generator.writeFile();
-      } else if (language == "python") {
-        Console.WriteLine("Using Python");
+      } else if (language == "export") {
+        Console.WriteLine("Using Export");
         CodeGenerator generator = null;
         ModuleInfo module_info = parser.Module;
         if (module_info != null)

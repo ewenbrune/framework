@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* PythonServiceGenerator.cc                                   (C) 2000-2007 */
+/* ExportServiceGenerator.cc                                   (C) 2000-2007 */
 /*                                                                           */
 /* Classe générant le code de la classe de base d'un service.                */
 /*---------------------------------------------------------------------------*/
@@ -20,23 +20,23 @@ namespace Arcane.Axl
   /**
    * Classe générant le code de la classe de base d'un service. 
    */
-  public class PythonServiceGenerator : PythonCodeGenerator
+  public class ExportServiceGenerator : ExportCodeGenerator
   {
     /** Objet stockant les informations de l'élément XML "service". */
     private ServiceInfo m_info;
     /** Générateur des fichiers "CaseOptions.h" et "CaseOptions.cc". */
-    private PythonCaseOptionsGenerator m_co_generator;
+    private ExportCaseOptionsGenerator m_co_generator;
     /** Nom du fichier xml contenant la description des options. */
     private string m_case_options_xml_file_name;
 
-    public PythonServiceGenerator(string path,
+    public ExportServiceGenerator(string path,
                                   string output_path,
                                   ServiceInfo info)
     : base(path, output_path)
     {
       m_info = info;
       m_class_name = "Arcane" + m_info.Name + "Object";
-      m_co_generator = new PythonCaseOptionsGenerator(path,
+      m_co_generator = new ExportCaseOptionsGenerator(path,
                                                       m_output_path,
                                                       m_info.Name,
                                                       m_info.NamespaceMacroName,
@@ -67,7 +67,7 @@ namespace Arcane.Axl
 
       bool has_namespace = !string.IsNullOrEmpty(m_info.NamespaceName);
 
-      // file act as namespace in Python
+      // file act as namespace in Export
       //if (has_namespace) {
       //  file_stream.Write("namespace " + m_info.NamespaceName + "{\n");
       //}

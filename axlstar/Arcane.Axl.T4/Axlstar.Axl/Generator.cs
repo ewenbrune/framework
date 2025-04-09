@@ -230,16 +230,16 @@ namespace Axlstar.Axl
           throw new ArgumentException("Unknown argument '" + arg + "'");
       }
 
-      if (language == "python") {
-        Console.WriteLine ("Test Python");
+      if (language == "export") {
+        Console.WriteLine ("Test Export");
         AXLParser parser = AXLParserFactory.CreateParser(full_file_name,null);
         parser.ParseAXLFile();
         CodeGenerator generator = null;
         ModuleInfo module_info = parser.Module;
         if(module_info!=null)
-            generator = new PythonModuleGenerator(include_path, output_path, module_info);
+            generator = new ExportModuleGenerator(include_path, output_path, module_info);
         else
-            generator = new PythonServiceGenerator(include_path, output_path,parser.Service);
+            generator = new ExportServiceGenerator(include_path, output_path,parser.Service);
         generator.writeFile();
       }
 
