@@ -186,8 +186,10 @@ initCase(ISubDomain* sub_domain,bool is_continue)
     // Ewen
     String exportFormat = case_mng->application()->applicationInfo().commandLineArguments().getParameter("export_format");
     String exportPath = case_mng->application()->applicationInfo().commandLineArguments().getParameter("export_output_directory");
+    String exportOnly = case_mng->application()->applicationInfo().commandLineArguments().getParameter("export_only");
     if(!exportFormat.null()) {
       case_mng->exportOptions(exportFormat, exportPath);
+      if (exportOnly == "true") return; // Sale 
     }
 
     // Effectue le partitionnement initial ou de reprise

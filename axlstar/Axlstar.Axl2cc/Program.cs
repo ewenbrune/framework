@@ -37,7 +37,7 @@ namespace Axlstar.Axl
         _PrintUsage();
         return 1;
       }
-      if (_HasLegacyOption(args)) {
+      if (true) { // _HasLegacyOption(args)
         Console.WriteLine("WARNING: Using legacy implementation of 'axl2cc'");
         return _Execute2(args);
       }
@@ -109,6 +109,15 @@ namespace Axlstar.Axl
           generator = new CppModuleBaseGenerator(m_include_path, m_output_path, module_info);
         else
           generator = new CppServiceBaseGenerator(m_include_path, m_output_path, parser.Service);
+        generator.writeFile();
+      } else if (language == "python") {
+        Console.WriteLine("Using Python");
+        CodeGenerator generator = null;
+        ModuleInfo module_info = parser.Module;
+        if (module_info != null)
+          generator = new CSharpModuleGenerator(m_include_path, m_output_path, module_info);
+        else
+          generator = new CSharpServiceGenerator(m_include_path, m_output_path, parser.Service);
         generator.writeFile();
       } else if (language == "c#") {
         Console.WriteLine("WARNING:  USE CSHARP !!!!!!!!!!!!!!");

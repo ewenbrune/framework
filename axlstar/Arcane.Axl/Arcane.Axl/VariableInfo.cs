@@ -144,9 +144,11 @@ namespace Arcane.Axl
         m_item_kind = ItemKind.Particle;
       else if (item_kind == "dof")
         m_item_kind = ItemKind.DoF;
-      else if (item_kind == "none")
+      else if (item_kind == "")
         m_item_kind = ItemKind.Unknown;
       else {
+        Console.WriteLine("** ERREUR: attribut \"item-kind\" de l'option <" + node.Name
+             + "> invalide - field-name : (" + node.GetAttribute("field-name") + ").\n");
         Console.WriteLine("** ERREUR: attribut \"item-kind\" de l'option <" + node.Name
              + "> invalide (" + item_kind + ").\n");
         Console.WriteLine("** Les types reconnus sont 'node', 'edge', "
