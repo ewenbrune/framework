@@ -12,9 +12,9 @@ namespace Arcane.Axl
    * Classe implémentant le Design Pattern du visiteur pour générer le code C++ de
    * déclaration des classes pour les options de type complex.
    */
-  public class ExportClassDefinitionGenerator : IOptionInfoVisitor
+  public class JsonOptionsGenerator : IOptionInfoVisitor
   {
-    public ExportClassDefinitionGenerator(TextWriter stream, int indent_level=0)
+    public JsonOptionsGenerator(TextWriter stream, int indent_level=0)
     {
       m_stream = stream;
       m_indent_level = indent_level;
@@ -27,7 +27,7 @@ namespace Arcane.Axl
 
       m_stream.Write(new string(' ', m_indent_level * 4) + "\"HasDefault\": " + (info.HasDefault ? "true":"false") + ",\n");
       if(info.HasDefault)
-        m_stream.Write(new string(' ', m_indent_level * 4) + "\"DefaultValue\": " + info.DefaultValue + ",\n");
+        m_stream.Write(new string(' ', m_indent_level * 4) + "\"DefaultValue\": \"" + info.DefaultValue + "\",\n");
       else
         m_stream.Write(new string(' ', m_indent_level * 4) + "\"DefaultValue\": null,\n");
 

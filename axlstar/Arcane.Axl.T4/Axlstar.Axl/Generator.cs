@@ -230,16 +230,15 @@ namespace Axlstar.Axl
           throw new ArgumentException("Unknown argument '" + arg + "'");
       }
 
-      if (language == "export") {
-        Console.WriteLine ("Test Export");
+      if (language == "json") {
         AXLParser parser = AXLParserFactory.CreateParser(full_file_name,null);
         parser.ParseAXLFile();
         CodeGenerator generator = null;
-        ModuleInfo module_info = parser.Module;
+        ServiceOrModuleInfo module_info = parser.Module;
         if(module_info!=null)
-            generator = new ExportModuleGenerator(include_path, output_path, module_info);
+            generator = new JsonGenerator(include_path, output_path, module_info);
         else
-            generator = new ExportServiceGenerator(include_path, output_path,parser.Service);
+            generator = new JsonGenerator(include_path, output_path,parser.Service);
         generator.writeFile();
       }
 

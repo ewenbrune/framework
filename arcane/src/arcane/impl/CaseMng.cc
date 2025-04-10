@@ -833,7 +833,7 @@ void CaseMng::exportOptions(const String& format, const String& exportDirectory)
 
     auto xml = createExportToXmlCaseDocumentVisitor(ss,lang);
 
-    for( ICaseOptions* co : CaseOptionsFilterUsed(m_case_options_list)) {
+    for( ICaseOptions* co : m_case_options_list) { //CaseOptionsFilterUsed
       co->visit(xml.get());
     }
 
