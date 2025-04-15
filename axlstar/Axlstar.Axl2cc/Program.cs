@@ -110,15 +110,6 @@ namespace Axlstar.Axl
         else
           generator = new CppServiceBaseGenerator(m_include_path, m_output_path, parser.Service);
         generator.writeFile();
-      } else if (language == "export") {
-        Console.WriteLine("Using Export");
-        CodeGenerator generator = null;
-        ModuleInfo module_info = parser.Module;
-        if (module_info != null)
-          generator = new CSharpModuleGenerator(m_include_path, m_output_path, module_info);
-        else
-          generator = new CSharpServiceGenerator(m_include_path, m_output_path, parser.Service);
-        generator.writeFile();
       } else if (language == "c#") {
         Console.WriteLine("WARNING:  USE CSHARP !!!!!!!!!!!!!!");
         CodeGenerator generator = null;

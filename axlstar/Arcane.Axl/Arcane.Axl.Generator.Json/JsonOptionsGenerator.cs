@@ -44,7 +44,7 @@ namespace Arcane.Axl
         m_stream.Write(new string(' ', m_indent_level * 4) + "\"MaxOccurs\": null,\n");
 
       m_stream.Write(new string(' ', m_indent_level * 4) + "\"IsOptional\": " + (info.IsOptional ? "true":"false") + ",\n");
-      m_stream.Write(new string(' ', m_indent_level * 4) + "\"FullName\": \"" + info.FullName + "\",\n");
+      m_stream.Write(new string(' ', m_indent_level * 4) + "\"FullName\": \"" + info.ServiceOrModule.Name +"/"+info.FullName + "\",\n");
       
       if(isComplex)
         m_stream.Write(new string(' ', m_indent_level * 4) + "\"Id\": \"" + info.GetIdString() + "\",\n");
