@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2023 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* NeoEvolutiveMeshTest.cpp                        (C) 2000-2023             */
+/* NeoEvolutiveMeshTest.cpp                        (C) 2000-2026             */
 /*                                                                           */
 /* First very basic mesh evolution test                                      */
 /*---------------------------------------------------------------------------*/
@@ -56,21 +56,21 @@ void createMesh(Neo::Mesh& mesh) {
   auto new_cells = added_cells.get(valid_mesh_state);
   auto new_nodes = added_nodes.get(valid_mesh_state);
   auto new_faces = added_faces.get(valid_mesh_state);
-  std::cout << "Added cells range after applyAlgorithms: " << new_cells;
-  std::cout << "Added nodes range after applyAlgorithms: " << new_nodes;
-  std::cout << "Added faces range after applyAlgorithms: " << new_faces;
+  Neo::printer() << "Added cells range after applyAlgorithms: " << new_cells;
+  Neo::printer() << "Added nodes range after applyAlgorithms: " << new_nodes;
+  Neo::printer() << "Added faces range after applyAlgorithms: " << new_faces;
 }
 
 //----------------------------------------------------------------------------/
 
-TEST(EvolutiveMeshTest, AddCells) {
+TEST(NeoEvolutiveMeshTest, AddCells) {
   auto mesh = Neo::Mesh{ "evolutive_neo_mesh" };
   createMesh(mesh);
 }
 
 //----------------------------------------------------------------------------/
 
-TEST(EvolutiveMeshTest, MoveNodes) {
+TEST(NeoEvolutiveMeshTest, MoveNodes) {
   std::cout << "Move node test " << std::endl;
   auto mesh = Neo::Mesh{ "evolutive_neo_mesh" };
   createMesh(mesh);
@@ -88,21 +88,21 @@ TEST(EvolutiveMeshTest, MoveNodes) {
 
 //----------------------------------------------------------------------------/
 
-TEST(EvolutiveMeshTest, RemoveCells) {
+TEST(NeoEvolutiveMeshTest, RemoveCells) {
   std::cout << "Remove cells test " << std::endl;
   auto mesh = Neo::Mesh{ "evolutive_neo_mesh" };
   createMesh(mesh);
   // add a connectivity to cell
-
   auto node2cells_con_name = node_family_name + "to" + cell_family_name + "_connectivity";
   std::vector<Neo::utils::Int64> node_to_cell{ 0, 0, 1, 1, 2, 3, 0, 0, 1, 2, 2, 3 };
   auto& cell_family = mesh.findFamily(Neo::ItemKind::IK_Cell, cell_family_name);
   auto& node_family = mesh.findFamily(Neo::ItemKind::IK_Node, node_family_name);
   mesh.scheduleAddConnectivity(node_family, node_family.all(), cell_family, 1,
                                node_to_cell, node2cells_con_name);
+  mesh.applyScheduledOperations();
   // Remove cell 0, 1 and 2
   std::vector<Neo::utils::Int64> removed_cells{ 0, 1, 2 };
-  mesh.scheduleRemoveItems(cell_family, removed_cells);
+  mesh.scheduleRemoveItems(cell_family, std::move(removed_cells));
   mesh.applyScheduledOperations();
   EXPECT_EQ(cell_family.nbElements(), 1);
   auto remaining_cell_uids = mesh.uniqueIds(cell_family, cell_family.all().localIds());
@@ -139,7 +139,7 @@ TEST(EvolutiveMeshTest, RemoveCells) {
   EXPECT_EQ(cell_family2.nbElements(), 0);
 
   // test several scheduleRemove in the same applyMeshOperations, no real mesh, only ids to test
-  auto node_uids = cell_uids;
+  auto const& node_uids = cell_uids;
   Neo::FutureItemRange future_nodes{};
   future_cells = Neo::FutureItemRange{};
   auto& node_family2 = mesh2.addFamily(Neo::ItemKind::IK_Node, "node_family2");

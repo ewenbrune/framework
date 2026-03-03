@@ -1,26 +1,9 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
-/*
- * Copyright 2020 IFPEN-CEA
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 
 #pragma once
 
@@ -91,6 +74,85 @@ class VectorInternal
       ptr[i] = h_values[i];
   }
 
+  void copyValuesToDevice(std::size_t size, ValueT* ptr) const
+  {
+    auto env = SYCLEnv::instance() ;
+    auto& queue = env->internal()->queue() ;
+    auto max_num_treads = env->maxNumThreads() ;
+
+    queue.submit( [&](sycl::handler& cgh)
+                  {
+                    auto access_x = m_values.template get_access<sycl::access::mode::read>(cgh);
+                    std::size_t y_length = size ;
+                    cgh.parallel_for<class init_vector_ptr>(sycl::range<1>{max_num_treads}, [=] (sycl::item<1> itemId)
+                                                      {
+                                                          auto id = itemId.get_id(0);
+                                                          for (auto i = id; i < y_length; i += itemId.get_range()[0])
+                                                            ptr[i] = access_x[i];
+                                                      });
+                  });
+    queue.wait() ;
+  }
+
+  void setValuesFromDevice(std::size_t size, ValueT const* ptr) const
+  {
+    auto env = SYCLEnv::instance() ;
+    auto& queue = env->internal()->queue() ;
+    auto max_num_treads = env->maxNumThreads() ;
+
+    queue.submit( [&](sycl::handler& cgh)
+                  {
+                    auto access_x = m_values.template get_access<sycl::access::mode::discard_write>(cgh);
+                    std::size_t y_length = size ;
+                    cgh.parallel_for<class init_vector_ptr>(sycl::range<1>{max_num_treads}, [=] (sycl::item<1> itemId)
+                                                      {
+                                                          auto id = itemId.get_id(0);
+                                                          for (auto i = id; i < y_length; i += itemId.get_range()[0])
+                                                            access_x[i] = ptr[i];
+                                                      });
+                  });
+    queue.wait() ;
+    /*
+    {
+      sycl::host_accessor<ValueT, 1, sycl::access::mode::read> vec_acc(m_values);
+      for(int irow=0;irow<size;++irow)
+      {
+         std::cout<<"VEC["<<irow<<"]"<<vec_acc[irow]<<std::endl;
+      }
+    }*/
+  }
+
+  void setValuesFromHost(std::size_t size, ValueT const* ptr) const
+  {
+    auto env = SYCLEnv::instance() ;
+    auto& queue = env->internal()->queue() ;
+    auto max_num_treads = env->maxNumThreads() ;
+
+    auto rhs = ValueBufferType(ptr,sycl::range<1>(size)) ;
+
+    queue.submit( [&](sycl::handler& cgh)
+                  {
+                    auto access_x = m_values.template get_access<sycl::access::mode::discard_write>(cgh);
+                    auto access_rhs = rhs.template get_access<sycl::access::mode::read>(cgh);
+                    std::size_t y_length = size ;
+                    cgh.parallel_for<class init_vector_ptr>(sycl::range<1>{max_num_treads}, [=] (sycl::item<1> itemId)
+                                                      {
+                                                          auto id = itemId.get_id(0);
+                                                          for (auto i = id; i < y_length; i += itemId.get_range()[0])
+                                                            access_x[i] = access_rhs[i];
+                                                      });
+                  });
+    queue.wait() ;
+    /*
+    {
+      sycl::host_accessor<ValueT, 1, sycl::access::mode::read> vec_acc(m_values);
+      for(int irow=0;irow<size;++irow)
+      {
+         std::cout<<"VEC["<<irow<<"]"<<vec_acc[irow]<<std::endl;
+      }
+    }*/
+  }
+
   void copy(ValueBufferType& src)
   {
     auto env = SYCLEnv::instance() ;
@@ -101,6 +163,87 @@ class VectorInternal
                                        cgh.copy(access_src,access_x) ;
                                      }) ;
   }
+
+  void pointWiseMult(ValueBufferType& y, ValueBufferType& z)
+  {
+    auto env = SYCLEnv::instance() ;
+    auto& queue = env->internal()->queue() ;
+    auto max_num_treads = env->maxNumThreads() ;
+
+    queue.submit( [&](sycl::handler& cgh)
+                  {
+                    auto access_x = m_values.template get_access<sycl::access::mode::read>(cgh);
+                    auto access_y = y.template get_access<sycl::access::mode::read>(cgh);
+                    auto access_z = z.template get_access<sycl::access::mode::discard_write>(cgh);
+                    std::size_t x_length = m_values.size() ;
+                    cgh.parallel_for<class init_vector_ptr>(sycl::range<1>{max_num_treads}, [=] (sycl::item<1> itemId)
+                                                      {
+                                                          auto id = itemId.get_id(0);
+                                                          for (auto i = id; i < x_length; i += itemId.get_range()[0])
+                                                            access_z[i] = access_x[i]*access_y[i];
+                                                      });
+                  });
+  }
+
+  void blockMult(std::size_t nrows,
+                 int block_size,
+                 ValueBufferType& y,
+                 ValueBufferType& z)
+  {
+    auto env = SYCLEnv::instance() ;
+    auto& queue = env->internal()->queue() ;
+    auto max_num_treads = env->maxNumThreads() ;
+    int N = block_size ;
+    int NxN = N*N ;
+    assert(m_values.size()>=nrows*NxN) ;
+    assert(y.size()>=nrows*N) ;
+    assert(z.size()>=nrows*N) ;
+    queue.submit( [&](sycl::handler& cgh)
+                  {
+                    auto access_x = m_values.template get_access<sycl::access::mode::read>(cgh);
+                    auto access_y = y.template get_access<sycl::access::mode::read>(cgh);
+                    auto access_z = z.template get_access<sycl::access::mode::discard_write>(cgh);
+                    cgh.parallel_for<class vector_block_mult>(
+                        sycl::range<1>{max_num_treads},
+                        [=] (sycl::item<1> itemId)
+                        {
+                            auto id = itemId.get_id(0);
+                            for (auto irow = id; irow < nrows; irow += itemId.get_range()[0])
+                            {
+                                for(int ieq=0;ieq<N;++ieq)
+                                {
+                                  ValueType value = 0. ;
+                                  for(int j=0;j<N;++j)
+                                  {
+                                     value += access_x[irow*NxN+ieq*N+j]*access_y[irow*N+j] ;
+                                  }
+                                  access_z[irow*N+ieq] = value ;
+                                }
+                            }
+                        });
+                  });
+#ifdef PRINT_DEBUG_INFO
+    {
+      sycl::host_accessor<ValueT, 1, sycl::access::mode::read> diag_acc(m_values);
+      sycl::host_accessor<ValueT, 1, sycl::access::mode::read> z_acc(z);
+
+      for (std::size_t irow = 0; irow < nrows; ++irow)
+      {
+        std::cout<<"INV DIAG["<<irow<<"]:\n";
+        for(int i=0;i<N;++i)
+        {
+          for(int j=0;j<N;++j)
+            std::cout<<diag_acc[irow*NxN+i*N+j]<<" ";
+          std::cout<<std::endl;
+        }
+        std::cout<<"Y["<<irow<<"]=\n";
+        for(int i=0;i<N;++i)
+          std::cout<<z_acc[irow*N+i]<<std::endl;
+      }
+    }
+#endif
+  }
+
 
   //VectorInternal<ValueT>* clone() const { return new VectorInternal<ValueT>(*this); }
 

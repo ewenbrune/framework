@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* SharedMemoryParallelMng.cc                                  (C) 2000-2025 */
+/* SharedMemoryParallelMng.cc                                  (C) 2000-2026 */
 /*                                                                           */
 /* Implémentation des messages en mode mémoire partagé.                      */
 /*---------------------------------------------------------------------------*/
@@ -26,19 +26,24 @@
 
 #include "arcane/parallel/thread/SharedMemoryParallelDispatch.h"
 #include "arcane/parallel/thread/ISharedMemoryMessageQueue.h"
+#include "arcane/parallel/thread/internal/SharedMemoryContigMachineShMemWinBaseInternalCreator.h"
+#include "arcane/parallel/thread/internal/SharedMemoryContigMachineShMemWinBaseInternal.h"
+#include "arcane/parallel/thread/internal/SharedMemoryMachineShMemWinBaseInternal.h"
 
 #include "arcane/core/Timer.h"
 #include "arcane/core/IIOMng.h"
 #include "arcane/core/ISerializeMessageList.h"
 #include "arcane/core/IItemFamily.h"
 #include "arcane/core/internal/SerializeMessage.h"
+#include "arcane/core/internal/ParallelMngInternal.h"
+#include "arcane/core/internal/MachineShMemWinMemoryAllocator.h"
 
 #include "arcane/impl/TimerMng.h"
 #include "arcane/impl/ParallelReplication.h"
 #include "arcane/impl/internal/ParallelMngUtilsFactoryBase.h"
 
 #include "arccore/message_passing/RequestListBase.h"
-#include "arccore/message_passing/SerializeMessageList.h"
+#include "arccore/message_passing/internal/SerializeMessageList.h"
 
 #include <map>
 
@@ -89,6 +94,47 @@ class SharedMemoryParallelMng::RequestList
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
+class SharedMemoryParallelMng::Impl
+: public ParallelMngInternal
+{
+ public:
+
+  explicit Impl(SharedMemoryParallelMng* pm, SharedMemoryContigMachineShMemWinBaseInternalCreator* window_creator)
+  : ParallelMngInternal(pm)
+  , m_parallel_mng(pm)
+  , m_window_creator(window_creator)
+  , m_alloc(makeRef(new MachineShMemWinMemoryAllocator(pm)))
+  {}
+
+  ~Impl() override = default;
+
+ public:
+
+  Ref<IContigMachineShMemWinBaseInternal> createContigMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) override
+  {
+    return makeRef(m_window_creator->createWindow(m_parallel_mng->commRank(), sizeof_segment, sizeof_type));
+  }
+
+  Ref<IMachineShMemWinBaseInternal> createMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) override
+  {
+    return makeRef(m_window_creator->createDynamicWindow(m_parallel_mng->commRank(), sizeof_segment, sizeof_type));
+  }
+
+  IMemoryAllocator* machineShMemWinMemoryAllocator() override
+  {
+    return m_alloc.get();
+  }
+
+ private:
+
+  SharedMemoryParallelMng* m_parallel_mng;
+  SharedMemoryContigMachineShMemWinBaseInternalCreator* m_window_creator;
+  Ref<MachineShMemWinMemoryAllocator> m_alloc;
+};
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
 SharedMemoryParallelMng::
 SharedMemoryParallelMng(const SharedMemoryParallelMngBuildInfo& build_info)
 : ParallelMngDispatcher(ParallelMngDispatcherBuildInfo(build_info.rank,build_info.nb_rank))
@@ -111,6 +157,7 @@ SharedMemoryParallelMng(const SharedMemoryParallelMngBuildInfo& build_info)
 , m_parent_container_ref(build_info.container)
 , m_mpi_communicator(build_info.communicator)
 , m_utils_factory(createRef<ParallelMngUtilsFactoryBase>())
+, m_parallel_mng_internal(new Impl(this, build_info.window_creator))
 {
   if (!m_world_parallel_mng)
     m_world_parallel_mng = this;
@@ -122,6 +169,7 @@ SharedMemoryParallelMng(const SharedMemoryParallelMngBuildInfo& build_info)
 SharedMemoryParallelMng::
 ~SharedMemoryParallelMng()
 {
+  delete m_parallel_mng_internal;
   delete m_replication;
   m_sequential_parallel_mng.reset();
   delete m_io_mng;
@@ -186,7 +234,7 @@ initialize()
     m_trace->warning() << "SharedMemoryParallelMng already initialized";
     return;
   }
-	
+
   m_is_initialized = true;
 }
 
@@ -462,7 +510,7 @@ createSubParallelMngRef(Int32ConstArrayView kept_ranks)
   barrier();
   // Le rang 0 créé le builder
   if (m_rank==0){
-    builder = m_sub_builder_factory->_createParallelMngBuilder(nb_rank,m_mpi_communicator);
+    builder = m_sub_builder_factory->_createParallelMngBuilder(nb_rank, m_mpi_communicator, m_mpi_communicator);
     // Positionne le builder pour tout le monde
     m_all_dispatchers->m_create_sub_parallel_mng_info.m_builder = builder;
   }

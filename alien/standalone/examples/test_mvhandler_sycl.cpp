@@ -1,20 +1,9 @@
-/*
- * Copyright 2025 IFPEN-CEA
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
+//-----------------------------------------------------------------------------
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// See the top-level COPYRIGHT file for details.
+// SPDX-License-Identifier: Apache-2.0
+//-----------------------------------------------------------------------------
 
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options/options_description.hpp>
@@ -140,7 +129,7 @@ int main(int argc, char** argv)
                                          [=](Alien::SYCLParallelEngine::Item<1>::type item)
                                          {
                                             auto id = item.get_id(0);
-                                            for (std::size_t index = id; id < local_size; id += item.get_range()[0])
+                                            for (std::size_t index = id; id < std::size_t(local_size); id += item.get_range()[0])
                                                xv[index] = 1.*index;
                                          });
 
@@ -156,7 +145,7 @@ int main(int argc, char** argv)
                                          {
                                             auto index = item.get_id(0) ;
                                             auto id = item.get_id(0);
-                                            for (std::size_t index = id; id < local_size; id += item.get_range()[0])
+                                            for (std::size_t index = id; id < std::size_t(local_size); id += item.get_range()[0])
                                               yv[index] = 2*xcv[index] ;
                                          });
                   }) ;
@@ -165,7 +154,7 @@ int main(int argc, char** argv)
     Real norme_y = 0. ;
     auto xhv = x_acc.hostView() ;
     auto yhv = y_acc.hostView() ;
-    for (std::size_t i = 0; i < local_size; ++i)
+    for (Alien::Integer i = 0; i < local_size; ++i)
     {
       norme_x +=  xhv[i]* xhv[i] ;
       norme_y +=  yhv[i]* yhv[i] ;
@@ -195,7 +184,7 @@ int main(int argc, char** argv)
                                          {
                                             auto index = item.get_id(0) ;
                                             auto id = item.get_id(0);
-                                            for (std::size_t index = id; id < local_size; id += item.get_range()[0])
+                                            for (std::size_t index = id; id < std::size_t(local_size); id += item.get_range()[0])
                                             {
                                               Integer row = offset + index;
                                               matrix_acc[matrix_acc.entryIndex(row,row)] = 2.;
@@ -211,7 +200,7 @@ int main(int argc, char** argv)
     {
       Real norme_A = 0. ;
       auto hview = builder.hostView();
-      for(std::size_t irow=0;irow<local_size;++irow)
+      for(Alien::Integer irow=0;irow<local_size;++irow)
       {
           trace_mng->info() <<" ROW ["<<irow<<"]:";
           for(auto k=hview.kcol(irow);k<hview.kcol(irow+1);++k)
@@ -226,7 +215,7 @@ int main(int argc, char** argv)
     {
       Real norme_A = 0. ;
       auto hview = builder.hostView();
-      for(std::size_t irow=0;irow<local_size;++irow)
+      for(Alien::Integer irow=0;irow<local_size;++irow)
       {
           for(auto k=hview.kcol(irow);k<hview.kcol(irow+1);++k)
           {

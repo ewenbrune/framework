@@ -1,6 +1,6 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
@@ -10,11 +10,12 @@
 #include "arccore/base/Functor.h"
 #include "arccore/base/Ref.h"
 
+#include "arccore/concurrency/internal/ConcurrencyGlobalInternal.h"
 #include "arccore/concurrency/SpinLock.h"
 #include "arccore/concurrency/Mutex.h"
 #include "arccore/concurrency/IThreadBarrier.h"
 
-using namespace Arccore;
+using namespace Arcane;
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -134,8 +135,10 @@ class TestMutexLock1
       m_do_print_id = false;
     }
     Real v2 = Platform::getRealTime();
+    Int64 nb_sub_iter = m_nb_sub_iter;
     std::cout << "Test1 spin_time=" << (v2 - v1) << " count2=" << m_count2 << " count3=" << m_count3 << "\n";
-    Int64 expected_count3 = nb_iter * m_nb_sub_iter * nb_thread;
+    Int64 i64_nb_thread = nb_thread;
+    Int64 expected_count3 = nb_iter * nb_sub_iter * i64_nb_thread;
     Int64 expected_count2 = 10 * expected_count3 + (expected_count3 * (expected_count3 + 1)) / 2;
     std::cout << " expected_count2=" << expected_count2 << " expected_count3=" << expected_count3 << "\n";
     ASSERT_EQ(m_count2, expected_count2);
@@ -225,6 +228,14 @@ TEST(Concurrency, GlibMutexLock)
 TEST(Concurrency, StdMutexLock)
 {
   Ref<IThreadImplementation> timpl(Concurrency::createStdThreadImplementation());
+  Concurrency::setThreadImplementation(timpl.get());
+  _doMutexLock();
+  Concurrency::setThreadImplementation(nullptr);
+}
+
+TEST(Concurrency, LegacyStdMutexLock)
+{
+  Ref<IThreadImplementation> timpl(Concurrency::createLegacyStdThreadImplementation());
   Concurrency::setThreadImplementation(timpl.get());
   _doMutexLock();
   Concurrency::setThreadImplementation(nullptr);

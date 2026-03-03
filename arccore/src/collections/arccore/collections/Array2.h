@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* Array2.h                                                    (C) 2000-2025 */
+/* Array2.h                                                    (C) 2000-2026 */
 /*                                                                           */
 /* Tableau 2D classique.                                                     */
 /*---------------------------------------------------------------------------*/
@@ -18,7 +18,8 @@
 #include "arccore/base/NotSupportedException.h"
 #include "arccore/base/Span2.h"
 
-#include "arccore/collections/Array.h"
+#include "arccore/common/Array.h"
+#include "arccore/collections/CollectionsGlobal.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -74,6 +75,7 @@ class Array2
 
   using AbstractArray<DataType>::allocator;
   using AbstractArray<DataType>::setMemoryLocationHint;
+  using AbstractArray<DataType>::changeAllocator;
   using AbstractArrayBase::setDebugName;
   using AbstractArrayBase::debugName;
   using AbstractArrayBase::allocationOptions;
@@ -100,7 +102,10 @@ class Array2
 
   //! Créé un tableau vide avec un allocateur spécifique \a allocator
   explicit Array2(IMemoryAllocator* allocator)
-  : AbstractArray<DataType>() { this->_initFromAllocator(allocator,0); }
+  : AbstractArray<DataType>()
+  {
+    this->_initFromAllocator(MemoryAllocationOptions(allocator), 0);
+  }
   /*!
    * \brief Créé un tableau de \a size1 * \a size2 éléments avec
    * un allocateur spécifique \a allocator.
@@ -108,10 +113,10 @@ class Array2
   Array2(IMemoryAllocator* allocator,Int64 size1,Int64 size2)
   : AbstractArray<DataType>()
   {
-    this->_initFromAllocator(allocator,size1*size2);
+    this->_initFromAllocator(MemoryAllocationOptions(allocator), size1 * size2);
     resize(size1,size2);
   }
-  ~Array2() = default;
+  ~Array2() override = default;
 
  private:
 
@@ -735,14 +740,14 @@ class UniqueArray2
   UniqueArray2(const Array2<T>& rhs)
   : Array2<T>()
   {
-    this->_initFromAllocator(rhs.allocator(),0);
+    this->_initFromAllocator(MemoryAllocationOptions(rhs.allocator()), 0);
     this->_resizeAndCopyView(rhs);
   }
   //! Créé un tableau en recopiant les valeurs \a rhs.
   UniqueArray2(const UniqueArray2<T>& rhs)
   : Array2<T>()
   {
-    this->_initFromAllocator(rhs.allocator(),0);
+    this->_initFromAllocator(MemoryAllocationOptions(rhs.allocator()), 0);
     this->_resizeAndCopyView(rhs);
   }
   //! Créé un tableau en recopiant les valeurs \a rhs.

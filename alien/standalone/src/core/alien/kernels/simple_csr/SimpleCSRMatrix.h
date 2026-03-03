@@ -1,6 +1,6 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
@@ -104,6 +104,11 @@ class SimpleCSRMatrix : public IMatrixImpl
     }
   }
 
+  void scal(ValueType const* values)
+  {
+    m_matrix.scal(values) ;
+  }
+
   CSRStructInfo& getCSRProfile() { return m_matrix.getCSRProfile(); }
 
   const CSRStructInfo& getCSRProfile() const { return m_matrix.getCSRProfile(); }
@@ -152,6 +157,28 @@ class SimpleCSRMatrix : public IMatrixImpl
     }
     else
       return total_size;
+  }
+
+  Integer blockSize() const
+  {
+    if (block())
+    {
+       return block()->size();
+    }
+    else if (vblock()) {
+      return 1 ;
+    }
+    else {
+      return m_own_block_size ;
+    }
+  }
+
+  void setBlockSize(Integer block_size)
+  {
+    if(this->m_multi_impl)
+      const_cast<MultiMatrixImpl*>(this->m_multi_impl)->setBlockInfos(block_size) ;
+    else
+      m_own_block_size = block_size ;
   }
 
   IMessagePassingMng* getParallelMng()
@@ -279,6 +306,7 @@ class SimpleCSRMatrix : public IMatrixImpl
     matrix->m_myrank = m_myrank;
     matrix->m_parallel_mng = m_parallel_mng;
     matrix->m_trace = m_trace;
+    matrix->setBlockSize(blockSize()) ;
     matrix->m_matrix.copy(m_matrix);
     matrix->m_matrix_dist_info.copy(m_matrix_dist_info);
     return matrix;
@@ -297,7 +325,13 @@ class SimpleCSRMatrix : public IMatrixImpl
     m_myrank = matrix.m_myrank;
     m_parallel_mng = matrix.m_parallel_mng;
     m_trace = matrix.m_trace;
-    m_matrix.copy(matrix.m_matrix);
+    if(blockSize()==matrix.blockSize())
+      m_matrix.copy(matrix.m_matrix);
+    else
+    {
+      auto nb_blocks = matrix.getCSRProfile().getNnz() + 1 ;
+      m_matrix.copy(matrix.m_matrix,blockSize(),matrix.blockSize(),nb_blocks) ;
+    }
     m_matrix_dist_info.copy(matrix.m_matrix_dist_info);
   }
 
@@ -400,6 +434,7 @@ class SimpleCSRMatrix : public IMatrixImpl
   SimpleCSRInternal::CommProperty::ePolicyType m_send_policy;
   SimpleCSRInternal::CommProperty::ePolicyType m_recv_policy;
   IMessagePassingMng* m_parallel_mng = nullptr;
+  Integer m_own_block_size = 1;
   Integer m_nproc = 1;
   Integer m_myrank = 0;
   ITraceMng* m_trace = nullptr;

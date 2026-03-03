@@ -1,0 +1,81 @@
+﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
+//-----------------------------------------------------------------------------
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// See the top-level COPYRIGHT file for details.
+// SPDX-License-Identifier: Apache-2.0
+//-----------------------------------------------------------------------------
+/*---------------------------------------------------------------------------*/
+/* RunCommandLaunch.h                                          (C) 2000-2026 */
+/*                                                                           */
+/* RunCommand pour le parallélisme hiérarchique.                             */
+/*---------------------------------------------------------------------------*/
+#ifndef ARCCORE_ACCELERATOR_RUNCOMMANDLAUNCH_H
+#define ARCCORE_ACCELERATOR_RUNCOMMANDLAUNCH_H
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+#include "arccore/accelerator/RunCommandLaunchImpl.h"
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+namespace Arcane::Accelerator
+{
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+template <typename LoopBoundType, typename... RemainingArgs> auto
+operator<<(RunCommand& command, const Impl::ExtendedLaunchLoop<LoopBoundType, RemainingArgs...>& ex_loop)
+-> Impl::ExtendedLaunchRunCommand<LoopBoundType, RemainingArgs...>
+{
+  return { command, ex_loop.m_bounds, ex_loop.m_remaining_args };
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+} // namespace Arcane::Accelerator
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+// Pour Sycl, le type de l'itérateur ne peut pas être le même sur l'hôte et
+// le device car il faut un 'sycl::nd_item' et il n'est pas possible d'en
+// construire un (pas de constructeur par défaut). On utilise donc
+// une lambda template et le type de l'itérateur est un paramètre template
+
+/*!
+ * \brief Macro pour lancer une commande utilisant le parallélisme
+ * hiérarchique, éventuellement coopératif.
+ *
+ * \a bounds doit être une instance de type Arcane::Accelerator::WorkGroupLoopRange
+ * ou Arcane::Accelerator::CooperativeWorkGroupLoopRange.
+ *
+ * La création de ces instances se fait via l'appel à
+ * Arcane::Accelerator::makeWorkGroupLoopRange() ou
+ * Arcane::Accelerator::makeCooperativeWorkGroupLoopRange().
+ *
+ * \a iter_name sera du type Arcane::Accelerator::WorkGroupLoopContext ou
+ * Arcane::Accelerator::CooperativeWorkGroupLoopContext (sauf
+ * pour la politique d'exécution Arcane::Accelerator::eExecutionPolicy::SYCL
+ * où le type est template et est différent si on s'exécute sur l'hôte ou
+ * sur l'accélérateur).
+ */
+#if defined(ARCCORE_COMPILING_SYCL)
+#define RUNCOMMAND_LAUNCH(iter_name, bounds, ...) \
+  A_FUNCINFO << ::Arcane::Accelerator::Impl::makeLaunch(bounds __VA_OPT__(, __VA_ARGS__)) \
+             << [=] ARCCORE_HOST_DEVICE(auto iter_name __VA_OPT__(ARCCORE_RUNCOMMAND_REMAINING_FOR_EACH(__VA_ARGS__)))
+#else
+#define RUNCOMMAND_LAUNCH(iter_name, bounds, ...) \
+  A_FUNCINFO << ::Arcane::Accelerator::Impl::makeLaunch(bounds __VA_OPT__(, __VA_ARGS__)) \
+             << [=] ARCCORE_HOST_DEVICE(typename decltype(bounds)::LoopIndexType iter_name __VA_OPT__(ARCCORE_RUNCOMMAND_REMAINING_FOR_EACH(__VA_ARGS__)))
+#endif
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+#endif
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/

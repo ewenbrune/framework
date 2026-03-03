@@ -1,13 +1,13 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* Real3.h                                                     (C) 2000-2024 */
+/* Real3.h                                                     (C) 2000-2026 */
 /*                                                                           */
-/* Vecteur à 3 dimensions.                                                   */
+/* Vecteur à 3 dimensions de 'Real'.                                         */
 /*---------------------------------------------------------------------------*/
 #ifndef ARCANE_UTILS_REAL3_H
 #define ARCANE_UTILS_REAL3_H
@@ -175,6 +175,15 @@ class ARCANE_UTILS_EXPORT Real3
     z = 0.0;
   }
 
+  //! Construit le triplet (av[0], av[1], av[2])
+  constexpr ARCCORE_HOST_DEVICE Real3(ConstArrayView<Real> av)
+    : Real3POD()
+  {
+    x = av[0];
+    y = av[1];
+    z = av[2];
+  }
+
   //! Opérateur de recopie.
   Real3& operator=(const Real3& f) = default;
 
@@ -215,6 +224,18 @@ class ARCANE_UTILS_EXPORT Real3
     y = f.y;
     z = f.z;
     return (*this);
+  }
+
+  //! Retourne une vue sur les trois élements du vecteur.
+  constexpr ARCCORE_HOST_DEVICE ArrayView<Real> view()
+  {
+    return { 3, &x };
+  }
+
+  //! Retourne une vue constante sur les trois élements du vecteur.
+  constexpr ARCCORE_HOST_DEVICE ConstArrayView<Real> constView() const
+  {
+    return { 3, &x };
   }
 
   //! Valeur absolue composante par composante.
@@ -422,7 +443,7 @@ class ARCANE_UTILS_EXPORT Real3
   // TODO: rendre obsolète mi-2025: ARCANE_DEPRECATED_REASON("Y2024: Use math::isNearlyZero(const Real3&) instead")
   inline constexpr ARCCORE_HOST_DEVICE bool isNearlyZero() const;
 
-  ARCANE_DEPRECATED_REASON("Y2024: Use math::mutableNormalize(Real3&) instead")
+  // TODO: rendre obsolète mi-2026: ARCANE_DEPRECATED_REASON("Y2024: Use math::mutableNormalize(Real3&) instead")
   inline Real3& normalize();
 
  private:
@@ -486,6 +507,19 @@ namespace math
     Real d = math::normL2(v);
     if (!math::isZero(d))
       v.divSame(d);
+    return v;
+  }
+  /*!
+    * \brief Retourne le triplet \a v normalisé avec la norme L2.
+    *
+    * Si `math::normL2(v)` est non nul, retourne le triplet \a v divisé par \a `math::normL2(v)`.
+    * Sinon, retourne un \a v.
+    */
+  inline Real3 normalizeL2(const Real3& v)
+  {
+    Real d = math::normL2(v);
+    if (!math::isZero(d))
+      return v / d;
     return v;
   }
 } // namespace math

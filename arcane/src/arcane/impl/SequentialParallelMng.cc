@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* SequentialParallelMng.cc                                    (C) 2000-2025 */
+/* SequentialParallelMng.cc                                    (C) 2000-2026 */
 /*                                                                           */
 /* Gestion du parallélisme dans le cas séquentiel.                           */
 /*---------------------------------------------------------------------------*/
@@ -40,6 +40,8 @@
 #include "arcane/core/AbstractService.h"
 #include "arcane/core/ISerializer.h"
 #include "arcane/core/internal/SerializeMessage.h"
+#include "arcane/core/internal/ParallelMngInternal.h"
+#include "arcane/core/internal/MachineShMemWinMemoryAllocator.h"
 
 #include "arcane/parallel/IStat.h"
 
@@ -54,7 +56,9 @@
 #include "arcane/impl/internal/VariableSynchronizer.h"
 
 #include "arccore/message_passing/RequestListBase.h"
-#include "arccore/message_passing/SerializeMessageList.h"
+#include "arccore/message_passing/internal/SerializeMessageList.h"
+#include "arccore/message_passing/internal/IContigMachineShMemWinBaseInternal.h"
+#include "arccore/message_passing/internal/IMachineShMemWinBaseInternal.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -346,6 +350,177 @@ class SequentialParallelDispatchT
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
+class SequentialContigMachineShMemWinBaseInternal
+: public IContigMachineShMemWinBaseInternal
+{
+ public:
+
+  SequentialContigMachineShMemWinBaseInternal(Int64 sizeof_segment, Int32 sizeof_type)
+  : m_sizeof_segment(sizeof_segment)
+  , m_max_sizeof_segment(sizeof_segment)
+  , m_sizeof_type(sizeof_type)
+  , m_segment(sizeof_segment)
+  {}
+
+  ~SequentialContigMachineShMemWinBaseInternal() override = default;
+
+ public:
+
+  Int32 sizeofOneElem() const override
+  {
+    return m_sizeof_type;
+  }
+
+  Span<std::byte> segmentView() override
+  {
+    return m_segment.span().subSpan(0, m_sizeof_segment);
+  }
+  Span<std::byte> segmentView(const Int32 rank) override
+  {
+    if (rank != 0) {
+      ARCANE_FATAL("Rank {0} is unavailable (Sequential)", rank);
+    }
+    return m_segment.span().subSpan(0, m_sizeof_segment);
+  }
+  Span<std::byte> windowView() override
+  {
+    return m_segment.span().subSpan(0, m_sizeof_segment);
+  }
+
+  Span<const std::byte> segmentConstView() const override
+  {
+    return m_segment.constSpan().subSpan(0, m_sizeof_segment);
+  }
+  Span<const std::byte> segmentConstView(const Int32 rank) const override
+  {
+    if (rank != 0) {
+      ARCANE_FATAL("Rank {0} is unavailable (Sequential)", rank);
+    }
+    return m_segment.constSpan().subSpan(0, m_sizeof_segment);
+  }
+  Span<const std::byte> windowConstView() const override
+  {
+    return m_segment.constSpan().subSpan(0, m_sizeof_segment);
+  }
+
+  void resizeSegment(const Int64 new_sizeof_segment) override
+  {
+    if (new_sizeof_segment > m_max_sizeof_segment) {
+      ARCANE_FATAL("New size of window (sum of size of all segments) is superior than the old size");
+    }
+    m_sizeof_segment = new_sizeof_segment;
+  }
+
+  ConstArrayView<Int32> machineRanks() const override
+  {
+    return ConstArrayView<Int32>{ 1, &m_my_rank };
+  }
+
+  void barrier() const override {}
+
+ private:
+
+  Int64 m_sizeof_segment = 0;
+  Int64 m_max_sizeof_segment = 0;
+
+  Int32 m_sizeof_type = 0;
+  UniqueArray<std::byte> m_segment;
+  Int32 m_my_rank = 0;
+};
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+class SequentialMachineShMemWinBaseInternal
+: public IMachineShMemWinBaseInternal
+{
+ public:
+
+  SequentialMachineShMemWinBaseInternal(Int64 sizeof_segment, Int32 sizeof_type)
+  : m_sizeof_type(sizeof_type)
+  , m_segment(sizeof_segment)
+  {}
+  ~SequentialMachineShMemWinBaseInternal() override = default;
+
+ public:
+
+  Int32 sizeofOneElem() const override
+  {
+    return m_sizeof_type;
+  }
+  ConstArrayView<Int32> machineRanks() const override
+  {
+    return ConstArrayView<Int32>{ 1, &m_my_rank };
+  }
+  void barrier() const override {}
+
+  Span<std::byte> segmentView() override
+  {
+    return m_segment;
+  }
+  Span<std::byte> segmentView(Int32 rank) override
+  {
+    if (rank != 0) {
+      ARCANE_FATAL("Rank {0} is unavailable (Sequential)", rank);
+    }
+    return m_segment;
+  }
+  Span<const std::byte> segmentConstView() const override
+  {
+    return m_segment;
+  }
+  Span<const std::byte> segmentConstView(Int32 rank) const override
+  {
+    if (rank != 0) {
+      ARCANE_FATAL("Rank {0} is unavailable (Sequential)", rank);
+    }
+    return m_segment;
+  }
+  void add(Span<const std::byte> elem) override
+  {
+    if (elem.size() % m_sizeof_type != 0) {
+      ARCCORE_FATAL("Sizeof elem not valid");
+    }
+    m_segment.addRange(elem);
+  }
+  void add() override {}
+  void addToAnotherSegment(Int32 rank, Span<const std::byte> elem) override
+  {
+    if (rank != 0) {
+      ARCANE_FATAL("Rank {0} is unavailable (Sequential)", rank);
+    }
+    if (elem.size() % m_sizeof_type != 0) {
+      ARCCORE_FATAL("Sizeof elem not valid");
+    }
+    m_segment.addRange(elem);
+  }
+  void addToAnotherSegment() override {}
+
+  void reserve(Int64 new_capacity) override
+  {
+    m_segment.reserve(new_capacity);
+  }
+  void reserve() override {}
+  void resize(Int64 new_size) override
+  {
+    m_segment.resize(new_size);
+  }
+  void resize() override {}
+  void shrink() override
+  {
+    m_segment.shrink();
+  }
+
+ private:
+
+  Int32 m_sizeof_type;
+  UniqueArray<std::byte> m_segment;
+  Int32 m_my_rank = 0;
+};
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
 class SequentialParallelMngUtilsFactory
 : public ParallelMngUtilsFactoryBase
 {
@@ -375,6 +550,10 @@ class SequentialParallelMngUtilsFactory
 class SequentialParallelMng
 : public ParallelMngDispatcher
 {
+ public:
+
+  class Impl;
+
  private:
   // Construit un gestionnaire séquentiel.
   SequentialParallelMng(const SequentialParallelMngBuildInfo& bi);
@@ -386,6 +565,7 @@ class SequentialParallelMng
   Int32 commSize() const override { return 1; }
   void* getMPICommunicator() override { return m_communicator.communicatorAddress(); }
   Parallel::Communicator communicator() const override { return m_communicator; }
+  Parallel::Communicator machineCommunicator() const override { return m_communicator; }
   bool isThreadImplementation() const override { return false; }
   bool isHybridImplementation() const override { return false; }
   void setBaseObject(IBase* m);
@@ -571,8 +751,10 @@ class SequentialParallelMng
 
   IParallelNonBlockingCollective* nonBlockingCollective() const override { return 0; }
 
+  IParallelMngInternal* _internalApi() override { return m_parallel_mng_internal; }
+
  public:
-  
+
   static IParallelMng* create(const SequentialParallelMngBuildInfo& bi)
   {
     if (!bi.traceMng())
@@ -611,9 +793,7 @@ class SequentialParallelMng
   IParallelReplication* m_replication;
   MP::Communicator m_communicator;
   Ref<IParallelMngUtilsFactory> m_utils_factory;
-
- private:
-
+  IParallelMngInternal* m_parallel_mng_internal = nullptr;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -639,6 +819,43 @@ arcaneCreateSequentialParallelMngRef(const SequentialParallelMngBuildInfo& bi)
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
+class SequentialParallelMng::Impl
+: public ParallelMngInternal
+{
+ public:
+
+  explicit Impl(SequentialParallelMng* pm)
+  : ParallelMngInternal(pm)
+  , m_alloc(makeRef(new MachineShMemWinMemoryAllocator(pm)))
+  {}
+
+  ~Impl() override = default;
+
+ public:
+
+  Ref<IContigMachineShMemWinBaseInternal> createContigMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) override
+  {
+    return makeRef(new SequentialContigMachineShMemWinBaseInternal(sizeof_segment, sizeof_type));
+  }
+
+  Ref<IMachineShMemWinBaseInternal> createMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) override
+  {
+    return makeRef(new SequentialMachineShMemWinBaseInternal(sizeof_segment, sizeof_type));
+  }
+
+  IMemoryAllocator* machineShMemWinMemoryAllocator() override
+  {
+    return m_alloc.get();
+  }
+
+ private:
+
+  Ref<MachineShMemWinMemoryAllocator> m_alloc;
+};
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
 SequentialParallelMng::
 SequentialParallelMng(const SequentialParallelMngBuildInfo& bi)
 : ParallelMngDispatcher(ParallelMngDispatcherBuildInfo(0,1))
@@ -651,6 +868,7 @@ SequentialParallelMng(const SequentialParallelMngBuildInfo& bi)
 , m_replication(new ParallelReplication())
 , m_communicator(bi.communicator())
 , m_utils_factory(makeRef<IParallelMngUtilsFactory>(new SequentialParallelMngUtilsFactory()))
+, m_parallel_mng_internal(new Impl(this))
 {
   ARCANE_CHECK_PTR(m_trace);
   ARCANE_CHECK_PTR(m_thread_mng);
@@ -666,6 +884,7 @@ SequentialParallelMng(const SequentialParallelMngBuildInfo& bi)
 SequentialParallelMng::
 ~SequentialParallelMng()
 {
+  delete m_parallel_mng_internal;
   delete m_stat;
   delete m_replication;
   delete m_io_mng;
@@ -870,9 +1089,10 @@ class SequentialParallelMngContainerFactory
   : AbstractService(sbi), m_application(sbi.application()){}
  public:
   Ref<IParallelMngContainer>
-  _createParallelMngBuilder(Int32 nb_rank,Parallel::Communicator comm) override
+  _createParallelMngBuilder(Int32 nb_rank, Parallel::Communicator comm, Parallel::Communicator machine_comm) override
   {
     ARCANE_UNUSED(nb_rank);
+    ARCANE_UNUSED(machine_comm);
     auto x = new SequentialParallelMngBuilder(m_application,comm);
     x->build();
     return makeRef<IParallelMngContainer>(x);

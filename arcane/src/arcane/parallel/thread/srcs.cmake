@@ -18,9 +18,13 @@ set(ARCANE_SOURCES
   SharedMemoryParallelMng.cc
   SharedMemoryParallelMng.h
 
-  StdThreadImplementationService.cc
-
   internal/SharedMemoryThreadMng.h
+  internal/SharedMemoryContigMachineShMemWinBaseInternal.cc
+  internal/SharedMemoryContigMachineShMemWinBaseInternal.h
+  internal/SharedMemoryMachineShMemWinBaseInternal.cc
+  internal/SharedMemoryMachineShMemWinBaseInternal.h
+  internal/SharedMemoryContigMachineShMemWinBaseInternalCreator.cc
+  internal/SharedMemoryContigMachineShMemWinBaseInternalCreator.h
 
   # TODO: les fichiers suivants sont gardés pour des raisons
   # de compatibilité avec l'existant. Il faudra les supprimer

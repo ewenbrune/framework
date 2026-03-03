@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* MpiParallelMng.cc                                           (C) 2000-2025 */
+/* MpiParallelMng.cc                                           (C) 2000-2026 */
 /*                                                                           */
 /* Gestionnaire de parallélisme utilisant MPI.                               */
 /*---------------------------------------------------------------------------*/
@@ -28,6 +28,8 @@
 #include "arcane/core/IItemFamily.h"
 #include "arcane/core/parallel/IStat.h"
 #include "arcane/core/internal/SerializeMessage.h"
+#include "arcane/core/internal/ParallelMngInternal.h"
+#include "arcane/core/internal/MachineShMemWinMemoryAllocator.h"
 
 #include "arcane/parallel/mpi/MpiParallelMng.h"
 #include "arcane/parallel/mpi/MpiParallelDispatch.h"
@@ -47,9 +49,14 @@
 #include "arccore/message_passing_mpi/internal/MpiRequestList.h"
 #include "arccore/message_passing_mpi/internal/MpiAdapter.h"
 #include "arccore/message_passing_mpi/internal/MpiLock.h"
+#include "arccore/message_passing_mpi/internal/MpiContigMachineShMemWinBaseInternalCreator.h"
+#include "arccore/message_passing_mpi/internal/MpiContigMachineShMemWinBaseInternal.h"
+#include "arccore/message_passing_mpi/internal/MpiMachineShMemWinBaseInternal.h"
 #include "arccore/message_passing/Dispatchers.h"
 #include "arccore/message_passing/Messages.h"
-#include "arccore/message_passing/SerializeMessageList.h"
+#include "arccore/message_passing/internal/SerializeMessageList.h"
+
+#include "arcane_packages.h"
 
 //#define ARCANE_TRACE_MPI
 
@@ -82,12 +89,16 @@ extern "C++" Ref<IDataSynchronizeImplementationFactory>
 arcaneCreateMpiDirectSendrecvVariableSynchronizerFactory(MpiParallelMng* mpi_pm);
 extern "C++" Ref<IDataSynchronizeImplementationFactory>
 arcaneCreateMpiLegacyVariableSynchronizerFactory(MpiParallelMng* mpi_pm);
+#if defined(ARCANE_HAS_PACKAGE_NCCL)
+extern "C++" Ref<IDataSynchronizeImplementationFactory>
+arcaneCreateNCCLVariableSynchronizerFactory(IParallelMng* mpi_pm);
+#endif
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
 MpiParallelMngBuildInfo::
-MpiParallelMngBuildInfo(MPI_Comm comm)
+MpiParallelMngBuildInfo(MPI_Comm comm, MPI_Comm machine_comm)
 : is_parallel(false)
 , comm_rank(MessagePassing::A_NULL_RANK)
 , comm_nb_rank(0)
@@ -96,6 +107,7 @@ MpiParallelMngBuildInfo(MPI_Comm comm)
 , timer_mng(nullptr)
 , thread_mng(nullptr)
 , mpi_comm(comm)
+, mpi_machine_comm(machine_comm)
 , is_mpi_comm_owned(true)
 , mpi_lock(nullptr)
 {
@@ -266,6 +278,8 @@ class MpiParallelMngUtilsFactory
     }
     if (platform::getEnvironmentVariable("ARCANE_SYNCHRONIZE_VERSION")=="5")
       m_synchronizer_version = 5;
+    if (platform::getEnvironmentVariable("ARCANE_SYNCHRONIZE_VERSION")=="6")
+      m_synchronizer_version = 6;
   }
  public:
 
@@ -316,6 +330,13 @@ class MpiParallelMngUtilsFactory
       throw NotSupportedException(A_FUNCINFO,"Synchronize implementation V5 is not supported with this version of MPI");
 #endif
     }
+#if defined(ARCANE_HAS_PACKAGE_NCCL)
+    else if (m_synchronizer_version == 6){
+      if (do_print)
+        tm->info() << "Using NCCLSynchronizer";
+      generic_factory = arcaneCreateNCCLVariableSynchronizerFactory(mpi_pm);
+    }
+#endif
     else{
       if (do_print)
         tm->info() << "Using MpiSynchronizer V1";
@@ -339,6 +360,48 @@ class MpiParallelMngUtilsFactory
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
+class MpiParallelMng::Impl
+: public ParallelMngInternal
+{
+ public:
+
+  explicit Impl(MpiParallelMng* pm)
+  : ParallelMngInternal(pm)
+  , m_parallel_mng(pm)
+  , m_alloc(makeRef(new MachineShMemWinMemoryAllocator(pm)))
+  {}
+
+  ~Impl() override = default;
+
+ public:
+
+  Ref<IContigMachineShMemWinBaseInternal> createContigMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) override
+  {
+    return makeRef(m_parallel_mng->adapter()->windowCreator(m_parallel_mng->machineCommunicator())->createWindow(sizeof_segment, sizeof_type));
+  }
+
+  Ref<IMachineShMemWinBaseInternal> createMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) override
+  {
+    return makeRef(m_parallel_mng->adapter()->windowCreator(m_parallel_mng->machineCommunicator())->createDynamicWindow(sizeof_segment, sizeof_type));
+  }
+
+  IMemoryAllocator* machineShMemWinMemoryAllocator() override
+  {
+    return m_alloc.get();
+  }
+
+ private:
+
+  MpiParallelMng* m_parallel_mng;
+  Ref<MachineShMemWinMemoryAllocator> m_alloc;
+};
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
 MpiParallelMng::
 MpiParallelMng(const MpiParallelMngBuildInfo& bi)
 : ParallelMngDispatcher(ParallelMngDispatcherBuildInfo(bi.dispatchersRef(),bi.messagePassingMngRef()))
@@ -352,10 +415,12 @@ MpiParallelMng(const MpiParallelMngBuildInfo& bi)
 , m_comm_size(bi.commSize())
 , m_stat(bi.stat)
 , m_communicator(bi.mpiComm())
+, m_machine_communicator(bi.mpiMachineComm())
 , m_is_communicator_owned(bi.is_mpi_comm_owned)
 , m_mpi_lock(bi.mpi_lock)
 , m_non_blocking_collective(nullptr)
 , m_utils_factory(createRef<MpiParallelMngUtilsFactory>())
+, m_parallel_mng_internal(new Impl(this))
 {
   if (!m_world_parallel_mng){
     m_trace->debug()<<"[MpiParallelMng] No m_world_parallel_mng found, reverting to ourselves!";
@@ -369,11 +434,13 @@ MpiParallelMng(const MpiParallelMngBuildInfo& bi)
 MpiParallelMng::
 ~MpiParallelMng()
 {
+  delete m_parallel_mng_internal;
   delete m_non_blocking_collective;
   m_sequential_parallel_mng.reset();
   if (m_is_communicator_owned){
     MpiLock::Section ls(m_mpi_lock);
     MPI_Comm_free(&m_communicator);
+    MPI_Comm_free(&m_machine_communicator);
   }
   delete m_replication;
   delete m_io_mng;
@@ -502,7 +569,7 @@ initialize()
     m_trace->warning() << "MpiParallelMng already initialized";
     return;
   }
-	
+
   m_trace->info() << "Initialisation de MpiParallelMng";
   m_sequential_parallel_mng->initialize();
 
@@ -805,7 +872,10 @@ _createSubParallelMng(MPI_Comm sub_communicator)
   int sub_rank = -1;
   MPI_Comm_rank(sub_communicator,&sub_rank);
 
-  MpiParallelMngBuildInfo bi(sub_communicator);
+  MPI_Comm sub_machine_communicator = MPI_COMM_NULL;
+  MPI_Comm_split_type(sub_communicator, MPI_COMM_TYPE_SHARED, sub_rank, MPI_INFO_NULL, &sub_machine_communicator);
+
+  MpiParallelMngBuildInfo bi(sub_communicator, sub_machine_communicator);
   bi.is_parallel = isParallel();
   bi.stat = m_stat;
   bi.timer_mng = m_timer_mng;

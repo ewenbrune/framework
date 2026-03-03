@@ -49,7 +49,13 @@ if(TARGET umfpack)
     linkLibraries(alien_ifpen_solvers umfpack)
 endif()
 
-linkLibraries(alien_ifpen_solvers Alien::alien_core)
+if (TARGET Alien::alien_core)
+    linkLibraries(alien_ifpen_solvers Alien::alien_core)
+endif()
+
+if (TARGET Alien::alien_semantic_ref)
+    linkLibraries(alien_ifpen_solvers Alien::alien_semantic_ref)
+endif()
 
 linkLibraries(alien_ifpen_solvers Boost::program_options)
 if(TARGET htssolver)
@@ -63,6 +69,8 @@ target_include_directories(alien_ifpen_solvers PUBLIC
   $<INSTALL_INTERFACE:include>)
 
 commit(alien_ifpen_solvers)
+
+add_library(Alien::ifpen_solvers ALIAS alien_ifpen_solvers)
 
 install(DIRECTORY alien
 	DESTINATION include

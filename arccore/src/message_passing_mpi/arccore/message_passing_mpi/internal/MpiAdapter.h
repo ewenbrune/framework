@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* MpiAdapter.h                                                (C) 2000-2025 */
+/* MpiAdapter.h                                                (C) 2000-2026 */
 /*                                                                           */
 /* Implémentation des messages avec MPI.                                     */
 /*---------------------------------------------------------------------------*/
@@ -24,13 +24,12 @@
 
 #include "arccore/base/BaseTypes.h"
 
-#include <set>
-
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
 namespace Arcane::MessagePassing::Mpi
 {
+class MpiContigMachineShMemWinBaseInternalCreator;
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -207,7 +206,11 @@ class ARCCORE_MESSAGEPASSINGMPI_EXPORT MpiAdapter
 
   bool isAllowNullRankForAnySource() const { return m_is_allow_null_rank_for_any_source; }
 
- private:
+ public:
+
+  MpiContigMachineShMemWinBaseInternalCreator* windowCreator(MPI_Comm comm_machine);
+
+private:
 
   IStat* m_stat = nullptr;
   MpiLock* m_mpi_lock = nullptr;
@@ -234,8 +237,10 @@ class ARCCORE_MESSAGEPASSINGMPI_EXPORT MpiAdapter
   // de temporairement garder un mode compatible.
   bool m_is_allow_null_rank_for_any_source = true;
 
+  Ref<MpiContigMachineShMemWinBaseInternalCreator> m_window_creator;
+
  private:
-  
+
   void _trace(const char* function);
   void _addRequest(MPI_Request request);
   void _removeRequest(MPI_Request request);

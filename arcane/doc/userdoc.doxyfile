@@ -185,6 +185,8 @@ STRIP_FROM_PATH        = @Arcane_SOURCE_DIR@/src \
                          @Arccore_ROOT@/src/base \
                          @Arccore_ROOT@/src/message_passing \
                          @Arccore_ROOT@/src/collections \
+                         @Arccore_ROOT@/src/common \
+                         @Arccore_ROOT@/src/accelerator \
                          @Arccore_ROOT@/src/concurrency \
                          @Arccore_ROOT@/src/trace \
                          @Arccore_ROOT@/src/message_passing_mpi \
@@ -205,6 +207,8 @@ STRIP_FROM_INC_PATH    = @Arcane_SOURCE_DIR@/src \
                          @Arccore_ROOT@/src/base \
                          @Arccore_ROOT@/src/message_passing \
                          @Arccore_ROOT@/src/collections \
+                         @Arccore_ROOT@/src/common \
+                         @Arccore_ROOT@/src/accelerator \
                          @Arccore_ROOT@/src/concurrency \
                          @Arccore_ROOT@/src/trace \
                          @Arccore_ROOT@/src/message_passing_mpi \
@@ -1031,6 +1035,7 @@ INPUT                  = @ARCANE_SRC_PATH@/arcane/core \
                          @ARCANESRCROOT@/doc/doc_user/chap_debug_perf \
                          @ARCANESRCROOT@/doc/doc_user/chap_debug_perf/subchap_profiling \
                          @ARCANESRCROOT@/doc/doc_user/chap_entities \
+                         @ARCANESRCROOT@/doc/doc_user/chap_entities/subchap_amr_cartesianmesh \
                          @ARCANESRCROOT@/doc/doc_user/chap_examples \
                          @ARCANESRCROOT@/doc/doc_user/chap_examples/subchap_simple_example \
                          @ARCANESRCROOT@/doc/doc_user/chap_examples/subchap_concret_example \
@@ -1057,6 +1062,9 @@ INPUT                  = @ARCANE_SRC_PATH@/arcane/core \
                          @Arccore_ROOT@/src/base/arccore/base \
                          @Arccore_ROOT@/src/collections/arccore/collections \
                          @Arccore_ROOT@/src/concurrency/arccore/concurrency \
+                         @Arccore_ROOT@/src/common/arccore/common \
+                         @Arccore_ROOT@/src/common/arccore/common/accelerator \
+                         @Arccore_ROOT@/src/accelerator/arccore/accelerator \
                          @Arccore_ROOT@/src/trace/arccore/trace \
                          @Arccore_ROOT@/src/message_passing/arccore/message_passing \
                          @Arccore_ROOT@/src/message_passing_mpi/arccore/message_passing_mpi \
@@ -1155,8 +1163,9 @@ EXCLUDE_SYMBOLS        =
 
 EXAMPLE_PATH           = @ARCANE_CEA_SOURCE_PATH@/src/arcane/tests \
                          @Arcane_SOURCE_DIR@/src/arcane/tests/accelerator \
-                         @ARCANESRCROOT@/samples_build/samples \
+                         @Arcane_SOURCE_DIR@/src/arcane/tests/cartesianmesh \
                          @Arcane_SOURCE_DIR@/src/arcane/tests \
+                         @ARCANESRCROOT@/samples_build/samples \
                          @ARCANESRCROOT@/doc/doc_common/chap_build_install/subchap_prerequisites/snippets \
                          @DOC_OUTPUT_DIR@/share/axl/dox/snippets
 
@@ -1182,6 +1191,7 @@ IMAGE_PATH             = @ARCANESRCROOT@/doc/specifs/images \
                          @ARCANESRCROOT@/doc/theme/img \
                          @ARCANESRCROOT@/doc/doc_user/chap_core_types/img \
                          @ARCANESRCROOT@/doc/doc_user/chap_entities/img \
+                         @ARCANESRCROOT@/doc/doc_user/chap_entities/subchap_amr_cartesianmesh/img \
                          @ARCANESRCROOT@/doc/doc_user/chap_examples/subchap_simple_example/img \
                          @ARCANESRCROOT@/doc/doc_user/chap_examples/subchap_concret_example/img \
                          @ARCANESRCROOT@/doc/doc_user/chap_io/subchap_timehistory/img \
@@ -2580,6 +2590,11 @@ INCLUDE_FILE_PATTERNS  =
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
 PREDEFINED             = DOXYGEN_DOC=1 \
+                         ARCCORE_BASE_EXPORT= \
+                         ARCCORE_COMMON_EXPORT= \
+                         ARCCORE_COLLECTION_EXPORT= \
+                         ARCCORE_ACCELERATOR_EXPORT= \
+                         ARCCORE_MESSAGEPASSING_EXPORT= \
                          ARCANE_ALIGNAS_PACKED \
                          ARCANE_ALIGNAS \
                          "ARCANE_BEGIN_NAMESPACE=namespace Arcane {" \
@@ -2590,7 +2605,6 @@ PREDEFINED             = DOXYGEN_DOC=1 \
                          ARCANE_UTILS_EXPORT= \
                          ARCANE_IMPL_EXPORT= \
                          ARCANE_GEOMETRY_EXPORT= \
-                         ARCCORE_MESSAGEPASSING_EXPORT= \
                          "ARCCORE_HOST_DEVICE=__host__ __device__" \
                          ARCCORE_DEPRECATED_2019(a)=[[deprecated(a)]] \
                          ARCCORE_DEPRECATED_2020(a)=[[deprecated(a)]] \

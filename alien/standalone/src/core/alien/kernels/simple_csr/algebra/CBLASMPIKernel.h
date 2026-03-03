@@ -1,26 +1,9 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
-/*
- * Copyright 2020 IFPEN-CEA
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
 
 #pragma once
 
@@ -51,12 +34,30 @@ class CBLASMPIKernel
   }
 
   template <typename Distribution, typename VectorT>
+  static void copy(
+  Distribution const& dist, const VectorT& x, Integer stride_x, VectorT& y, Integer stride_y)
+  {
+    typedef typename VectorT::ValueType ValueType;
+    cblas::copy(dist.localSize(), (ValueType*)x.getDataPtr(), stride_x, y.getDataPtr(), stride_y);
+  }
+
+  template <typename Distribution, typename VectorT>
   static void axpy(Distribution const& dist ALIEN_UNUSED_PARAM,
                    typename VectorT::ValueType alpha, const VectorT& x, VectorT& y)
   {
     cblas::axpy(x.scalarizedLocalSize(), alpha, x.getDataPtr(), 1, y.getDataPtr(), 1);
   }
 
+  template <typename Distribution, typename VectorT>
+  static void axpy(Distribution const& dist,
+                   typename VectorT::ValueType alpha,
+                   const VectorT& x,
+                   Integer stride_x,
+                   VectorT& y,
+                   Integer stride_y)
+  {
+    cblas::axpy(x.scalarizedLocalSize(), alpha, x.getDataPtr(), stride_x, y.getDataPtr(), stride_y);
+  }
   template <typename Distribution, typename VectorT>
   static void scal(Distribution const& dist ALIEN_UNUSED_PARAM,
                    typename VectorT::ValueType alpha, VectorT& x)
@@ -76,6 +77,9 @@ class CBLASMPIKernel
     auto z_ptr = z.getDataPtr();
     for (std::size_t i = 0; i < local_size; ++i) {
       z_ptr[i] = x_ptr[i] * y_ptr[i];
+#ifdef PRINT_DEBUG_INFO
+      std::cout<<"X Y Z ["<<i<<"] :  "<<x_ptr[i]<<"*"<<y_ptr[i]<<"="<<z_ptr[i]<<std::endl ;
+#endif
     }
   }
 

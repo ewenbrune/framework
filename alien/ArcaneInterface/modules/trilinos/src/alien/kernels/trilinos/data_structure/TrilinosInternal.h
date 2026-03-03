@@ -1,6 +1,6 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
@@ -44,7 +44,11 @@
 #include <Teuchos_Comm.hpp>
 #include <Teuchos_OrdinalTraits.hpp>
 
+#if (TRILINOS_MAJOR_VERSION < 15)
 #include <KokkosCompat_ClassicNodeAPI_Wrapper.hpp>
+#else
+#include <Tpetra_KokkosCompat_ClassicNodeAPI_Wrapper.hpp>
+#endif
 
 #include <MatrixMarket_Tpetra.hpp>
 
@@ -131,7 +135,11 @@ void initAMGX(AMGXEnv& amgx_env) ;
 #ifdef KOKKOS_ENABLE_SERIAL
 template <> struct TrilinosInternal::Node<BackEnd::tag::tpetraserial>
 {
+#if (TRILINOS_MAJOR_VERSION < 15)
   typedef Kokkos::Compat::KokkosSerialWrapperNode type;
+#else
+  typedef Tpetra::KokkosCompat::KokkosSerialWrapperNode type;
+#endif
   static const std::string name;
   static const std::string execution_space_name;
 };
@@ -147,7 +155,11 @@ inline void initAMGX(AMGXEnv& amgx_env,
 #ifdef KOKKOS_ENABLE_OPENMP
 template <> struct TrilinosInternal::Node<BackEnd::tag::tpetraomp>
 {
+#if (TRILINOS_MAJOR_VERSION < 15)
   typedef Kokkos::Compat::KokkosOpenMPWrapperNode type;
+#else
+  typedef Tpetra::KokkosCompat::KokkosOpenMPWrapperNode type;
+#endif
   static const std::string name;
   static const std::string execution_space_name;
 };
@@ -162,7 +174,11 @@ inline void initAMGX(AMGXEnv& amgx_env,
 #ifdef KOKKOS_ENABLE_THREADS
 template <> struct TrilinosInternal::Node<BackEnd::tag::tpetrapth>
 {
+#if (TRILINOS_MAJOR_VERSION < 15)
   typedef Kokkos::Compat::KokkosThreadsWrapperNode type;
+#else
+  typedef Tpetra::KokkosCompat::KokkosThreadsWrapperNode type;
+#endif
   static const std::string name;
   static const std::string execution_space_name;
 };
@@ -171,7 +187,11 @@ template <> struct TrilinosInternal::Node<BackEnd::tag::tpetrapth>
 #ifdef KOKKOS_ENABLE_CUDA
 template <> struct TrilinosInternal::Node<BackEnd::tag::tpetracuda>
 {
+#if (TRILINOS_MAJOR_VERSION < 15)
   typedef Kokkos::Compat::KokkosCudaWrapperNode type;
+#else
+  typedef Tpetra::KokkosCompat::KokkosCudaWrapperNode type;
+#endif
   static const std::string name;
   static const std::string execution_space_name;
 };
@@ -213,8 +233,8 @@ class MatrixInternal
                               local_ordinal_type,
                               global_ordinal_type,
                               node_type>                     coord_vector_type;
-  
-  MatrixInternal(int local_offset, int global_size, int local_size, MPI_Comm const& comm)
+
+  MatrixInternal(int local_offset, int global_size, int local_size, int max_row_size, MPI_Comm const& comm)
   {
     using Teuchos::Array;
     using Teuchos::ArrayView;
@@ -231,11 +251,31 @@ class MatrixInternal
     m_map = rcp(new map_type(gsize, indices, 0, m_comm));
 
     //m_internal.reset(new matrix_type(this->m_map, 0, Tpetra::ProfileType(1)));
-    m_internal.reset(new matrix_type(this->m_map, 10));
+    m_internal.reset(new matrix_type(this->m_map, max_row_size));
+  }
+  
+  MatrixInternal(int local_offset, int global_size, int local_size, std::size_t const* row_size, MPI_Comm const& comm)
+  {
+    using Teuchos::Array;
+    using Teuchos::ArrayView;
+    using Teuchos::RCP;
+    using Teuchos::rcp;
+    using Teuchos::Comm;
+    using Teuchos::MpiComm;
+
+    Array<global_ordinal_type> indices(local_size);
+    for (int i = 0; i < local_size; ++i)
+      indices[i] = local_offset + i;
+    const Tpetra::global_size_t gsize = global_size;
+    m_comm = rcp(new MpiComm<int>(comm));
+    m_map = rcp(new map_type(gsize, indices, 0, m_comm));
+
+    //m_internal.reset(new matrix_type(this->m_map, 0, Tpetra::ProfileType(1)));
+    m_internal.reset(new matrix_type(this->m_map, ArrayView<const std::size_t>(row_size, local_size)));
   }
 
   bool initMatrix(int local_offset, int nrows, int const* kcol, int const* cols,
-      int block_size, ValueT const* values);
+      int block_size, int max_row_size, ValueT const* values);
 
   bool setMatrixValues(Real const* values);
 

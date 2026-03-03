@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* IParallelMngInternal.h                                      (C) 2000-2024 */
+/* IParallelMngInternal.h                                      (C) 2000-2026 */
 /*                                                                           */
 /* Partie interne à Arcane de IParallelMng.                                  */
 /*---------------------------------------------------------------------------*/
@@ -14,13 +14,22 @@
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
-#include "arcane/ArcaneTypes.h"
+#include "arcane/core/ArcaneTypes.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
 namespace Arcane
 {
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+namespace MessagePassing
+{
+  class IContigMachineShMemWinBaseInternal;
+  class IMachineShMemWinBaseInternal;
+}
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -53,9 +62,31 @@ class ARCANE_CORE_EXPORT IParallelMngInternal
   //! Créé un sous IParallelMng de manière similaire à MPI_Comm_split.
   virtual Ref<IParallelMng> createSubParallelMngRef(Int32 color, Int32 key) = 0;
 
- public:
-
   virtual void setDefaultRunner(const Runner& runner) = 0;
+
+  /*!
+   * \brief Méthode permettant de créer une fenêtre mémoire sur le noeud.
+   *
+   * Appel collectif.
+   *
+   * \param sizeof_segment La taille de notre segment (en octet).
+   * \param sizeof_type La taille d'un élément du segment (en octet).
+   * \return Une référence vers la nouvelle fenêtre.
+   */
+  virtual Ref<MessagePassing::IContigMachineShMemWinBaseInternal> createContigMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) = 0;
+
+  /*!
+   * \brief Méthode permettant de créer une fenêtre mémoire dynamique sur le noeud.
+   *
+   * Appel collectif.
+   *
+   * \param sizeof_segment La taille initiale de notre segment (en octet).
+   * \param sizeof_type La taille d'un élément du segment (en octet).
+   * \return Une référence vers la nouvelle fenêtre.
+   */
+  virtual Ref<MessagePassing::IMachineShMemWinBaseInternal> createMachineShMemWinBase(Int64 sizeof_segment, Int32 sizeof_type) = 0;
+
+  virtual IMemoryAllocator* machineShMemWinMemoryAllocator() = 0;
 };
 
 /*---------------------------------------------------------------------------*/

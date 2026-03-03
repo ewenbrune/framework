@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* ArccoreGlobal.cc                                            (C) 2000-2025 */
+/* ArccoreGlobal.cc                                            (C) 2000-2026 */
 /*                                                                           */
 /* Déclarations générales de Arccore.                                        */
 /*---------------------------------------------------------------------------*/
@@ -25,6 +25,13 @@
 #include "arccore/base/BFloat16.h"
 #include "arccore/base/Float128.h"
 #include "arccore/base/Int128.h"
+#include "arccore/base/IRangeFunctor.h"
+#include "arccore/base/CheckedConvert.h"
+#include "arccore/base/ForLoopRunInfo.h"
+#include "arccore/base/ForLoopRanges.h"
+#include "arccore/base/ParallelLoopOptions.h"
+#include "arccore/base/ISymbolizerService.h"
+#include "arccore/base/internal/IDynamicLibraryLoader.h"
 
 #include <iostream>
 #include <cstring>
@@ -37,6 +44,11 @@
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
+/*!
+ * \file ArccoreGlobal.h
+ *
+ * \brief Définitions et globaux de %Arccore
+ */
 /*!
  * \namespace Arccore
  *
@@ -72,6 +84,16 @@ extern "C++" ARCCORE_BASE_EXPORT
 void arccoreSetCheck(bool v)
 {
   global_arccore_is_check = v;
+}
+
+extern "C++" ARCCORE_BASE_EXPORT
+bool arccoreIsDebug()
+{
+#ifdef ARCCORE_DEBUG
+  return true;
+#else
+  return false;
+#endif
 }
 
 /*---------------------------------------------------------------------------*/

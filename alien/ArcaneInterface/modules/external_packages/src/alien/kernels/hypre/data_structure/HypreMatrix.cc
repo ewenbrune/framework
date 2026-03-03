@@ -1,11 +1,14 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
+
+#include <alien/AlienExternalPackagesPrecomp.h>
 #include <alien/kernels/hypre/linear_solver/HypreInternalLinearSolver.h>
-#include "HypreMatrix.h"
+
+#include <alien/kernels/hypre/data_structure/HypreMatrix.h>
 #include <alien/kernels/hypre/data_structure/HypreVector.h>
 #include <alien/kernels/hypre/HypreBackEnd.h>
 #include <alien/kernels/hypre/data_structure/HypreInternal.h>
@@ -89,12 +92,131 @@ HypreMatrix::setMatrixValues(const int nrow, const int* rows, const int* ncols,
   return m_internal->setMatrixValues(nrow, rows, ncols, cols, values);
 }
 
+bool
+HypreMatrix::setMatrixValuesFrom(const int nrow,
+                                 const int nnz,
+                                 const int* rows,
+                                 const int* ncols,
+                                 const int* cols,
+                                 const Arccore::Real* values,
+                                 BackEnd::Memory::eType memory)
+{
+  if(memory == m_internal->getMemoryType())
+    return m_internal->setMatrixValues(nrow, rows, ncols, cols, values);
+  else
+  {
+#define NEED_COPY_DATA
+#ifdef NEED_COPY_DATA
+    auto view = HCSRView{this,m_internal->getMemoryType(),std::size_t(nrow),std::size_t(nnz)} ;
+    if(memory == BackEnd::Memory::Host)
+      m_internal->copyHostToDevicePointers(nrow, nnz,
+                                           rows, ncols, cols, values,
+                                           view.m_rows, view.m_ncols, view.m_cols, view.m_values) ;
+    else
+      m_internal->copyDeviceToHostPointers(nrow, nnz,
+                                           rows, ncols, cols, values,
+                                           view.m_rows, view.m_ncols, view.m_cols, view.m_values) ;
+
+     return m_internal->setMatrixValues(nrow, view.m_rows, view.m_ncols, view.m_cols, view.m_values);
+#else
+     return m_internal->setMatrixValues(nrow, rows, ncols, cols, values);
+#endif
+  }
+}
 /*---------------------------------------------------------------------------*/
 
 bool
 HypreMatrix::assemble()
 {
   return m_internal->assemble();
+}
+
+void HypreMatrix::allocateDevicePointers(std::size_t nrows,
+                                         std::size_t nnz,
+                                         HypreMatrix::IndexType** rows,
+                                         HypreMatrix::IndexType** ncols,
+                                         HypreMatrix::IndexType** cols,
+                                         HypreMatrix::ValueType** values) const
+{
+  m_internal->allocateDevicePointers(nrows, nnz, rows, ncols, cols, values) ;
+}
+
+void HypreMatrix::freeDevicePointers(HypreMatrix::IndexType* rows,
+                                     HypreMatrix::IndexType* ncols,
+                                     HypreMatrix::IndexType* cols,
+                                     HypreMatrix::ValueType* values) const
+{
+  m_internal->freeDevicePointers(rows, ncols, cols, values) ;
+}
+
+void HypreMatrix::allocateHostPointers(std::size_t nrows,
+                                       std::size_t nnz,
+                                       HypreMatrix::IndexType** rows,
+                                       HypreMatrix::IndexType** ncols,
+                                       HypreMatrix::IndexType** cols,
+                                       HypreMatrix::ValueType** values) const
+{
+  m_internal->allocateHostPointers(nrows, nnz, rows, ncols, cols, values) ;
+}
+
+void HypreMatrix::freeHostPointers(HypreMatrix::IndexType* rows,
+                                     HypreMatrix::IndexType* ncols,
+                                     HypreMatrix::IndexType* cols,
+                                     HypreMatrix::ValueType* values) const
+{
+  m_internal->freeHostPointers(rows, ncols, cols, values) ;
+}
+
+void HypreMatrix::copyHostToDevicePointers(std::size_t nrows,
+                              std::size_t nnz,
+                              const IndexType* rows_h,
+                              const IndexType* ncols_h,
+                              const IndexType* cols_h,
+                              const ValueType* values_h,
+                              IndexType* rows_d,
+                              IndexType* ncols_d,
+                              IndexType* cols_d,
+                              ValueType* values_d) const
+{
+  m_internal->copyHostToDevicePointers(nrows,
+                                       nnz,
+                                       rows_h,
+                                       ncols_h,
+                                       cols_h,
+                                       values_h,
+                                       rows_d,
+                                       ncols_d,
+                                       cols_d,
+                                       values_d);
+}
+
+void HypreMatrix::copyDeviceToHostPointers(std::size_t nrows,
+                              std::size_t nnz,
+                              const IndexType* rows_h,
+                              const IndexType* ncols_h,
+                              const IndexType* cols_h,
+                              const ValueType* values_h,
+                              IndexType* rows_d,
+                              IndexType* ncols_d,
+                              IndexType* cols_d,
+                              ValueType* values_d) const
+{
+  m_internal->copyDeviceToHostPointers(nrows,
+                                       nnz,
+                                       rows_h,
+                                       ncols_h,
+                                       cols_h,
+                                       values_h,
+                                       rows_d,
+                                       ncols_d,
+                                       cols_d,
+                                       values_d);
+}
+
+HypreMatrix::HCSRView
+HypreMatrix::hcsrView(BackEnd::Memory::eType memory, int nrows, int nnz)
+{
+  return HCSRView(this,memory, nrows, nnz) ;
 }
 
 /*---------------------------------------------------------------------------*/

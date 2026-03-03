@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* MpiAdapter.cc                                               (C) 2000-2025 */
+/* MpiAdapter.cc                                               (C) 2000-2026 */
 /*                                                                           */
 /* Gestionnaire de parallélisme utilisant MPI.                               */
 /*---------------------------------------------------------------------------*/
@@ -33,6 +33,7 @@
 #include "arccore/message_passing_mpi/internal/MpiLock.h"
 #include "arccore/message_passing_mpi/internal/NoMpiProfiling.h"
 #include "arccore/message_passing_mpi/internal/MpiRequest.h"
+#include "arccore/message_passing_mpi/internal/MpiContigMachineShMemWinBaseInternalCreator.h"
 
 #include <cstdint>
 
@@ -1741,13 +1742,29 @@ setProfiler(IProfiler* profiler)
 IProfiler* MpiAdapter::
 profiler() const
 {
-	return m_mpi_prof;
+  return m_mpi_prof;
 }
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
-} // End namespace Arccore::MessagePassing::Mpi
+MpiContigMachineShMemWinBaseInternalCreator* MpiAdapter::
+windowCreator(MPI_Comm comm_machine)
+{
+  if (m_window_creator.isNull()) {
+    Integer machine_comm_rank = 0;
+    Integer machine_comm_size = 0;
+    ::MPI_Comm_rank(comm_machine, &machine_comm_rank);
+    ::MPI_Comm_size(comm_machine, &machine_comm_size);
+    m_window_creator = makeRef(new MpiContigMachineShMemWinBaseInternalCreator(comm_machine, machine_comm_rank, machine_comm_size, m_communicator, m_comm_size));
+  }
+  return m_window_creator.get();
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+} // End namespace Arcane::MessagePassing::Mpi
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/

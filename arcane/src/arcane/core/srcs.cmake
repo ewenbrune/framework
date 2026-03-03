@@ -35,6 +35,8 @@ set(ARCANE_MATERIALS_SOURCES
   materials/ComponentItemVectorView.h
   materials/ComponentPartItemVectorView.cc
   materials/ComponentPartItemVectorView.h
+  materials/ConstituentItemVectorBuildInfo.h
+  materials/ConstituentItemVectorBuildInfo.cc
   materials/ConstituentItemLocalIdList.cc
   materials/EnvItemVector.cc
   materials/EnvItemVector.h
@@ -61,10 +63,12 @@ set(ARCANE_MATERIALS_SOURCES
 set(ARCANE_INTERNAL_SOURCES
   internal/ICaseMngInternal.h
   internal/IDataInternal.h
+  internal/DotNetRuntimeInitialisationInfoProperties.h
   internal/MshMeshGenerationInfo.h
   internal/CartesianMeshGenerationInfo.h
   internal/CartesianMeshGenerationInfo.cc
   internal/CartesianMeshAllocateBuildInfoInternal.h
+  internal/ConfigurationPropertyReader.h
   internal/UnstructuredMeshAllocateBuildInfoInternal.h
   internal/IParallelMngInternal.h
   internal/IItemFamilyInternal.h
@@ -84,6 +88,11 @@ set(ARCANE_INTERNAL_SOURCES
   internal/IPolyhedralMeshModifier.h
   internal/SerializeMessage.h
   internal/VtkCellTypes.h
+  internal/ParallelMngInternal.h
+  internal/ParallelMngInternal.cc
+  internal/IItemFamilySerializerMngInternal.h
+  internal/MachineShMemWinMemoryAllocator.cc
+  internal/MachineShMemWinMemoryAllocator.h
   )
 
 set(ARCANE_ORIGINAL_SOURCES
@@ -93,8 +102,10 @@ set(ARCANE_ORIGINAL_SOURCES
   Array2Variable.h
   VariableArray.cc
   VariableArray.h
-  MeshVariableTpl.cc
-  MeshVariableTplArray.cc
+  MeshVariableArrayRefTpl.cc
+  MeshVariableScalarRefTpl1.cc
+  MeshVariableScalarRefTpl2.cc
+  MeshVariableScalarRefTpl3.cc
 
   AbstractModule.h
   ApplicationBuildInfo.h
@@ -186,9 +197,6 @@ set(ARCANE_ORIGINAL_SOURCES
   IDeflateService.h
   IDirectSubDomainExecuteFunctor.h
   IDoFFamily.h
-  IDumpR.h
-  IDumpRW.h
-  IDumpW.h
   IEntryPointMng.h
   IExtraGhostCellsBuilder.h
   IExtraGhostItemsBuilder.h
@@ -320,6 +328,7 @@ set(ARCANE_ORIGINAL_SOURCES
   ItemGroupComputeFunctor.h
   ItemGroupImpl.cc
   ItemGroupInternal.cc
+  ItemGroupSubPartsByType.cc
   ItemGroupObserver.h
   ItemGroupRangeIterator.cc
   ItemGroupRangeIterator.h
@@ -476,7 +485,6 @@ set(ARCANE_ORIGINAL_SOURCES
   Concurrency.cc
   Concurrency.h
   Configuration.h
-  ConfigurationPropertyReader.h
   Connectivity.cc
   Connectivity.h
   ConnectivityItemVector.h
@@ -491,6 +499,12 @@ set(ARCANE_ORIGINAL_SOURCES
   DomLibXml2V2.cc
   DomUtils.cc
   DomUtils.h
+  MachineShMemWin.h
+  MachineShMemWinBase.cc
+  MachineShMemWinBase.h
+  MachineShMemWinVariable.h
+  MachineShMemWinVariableBase.cc
+  MachineShMemWinVariableBase.h
   EntryPoint.cc
   EntryPoint.h
   EnumeratorTraceWrapper.h
@@ -526,9 +540,9 @@ set(ARCANE_ORIGINAL_SOURCES
   MeshItemInternalList.h
   MeshPartInfo.cc
   MeshPartialVariableArrayRef.h
-  MeshPartialVariableArrayRefT.H
+  MeshPartialVariableArrayRef.inst.h
   MeshPartialVariableScalarRef.h
-  MeshPartialVariableScalarRefT.H
+  MeshPartialVariableScalarRef.inst.h
   MeshReaderMng.cc
   MeshStats.cc
   MeshStats.h
@@ -541,12 +555,12 @@ set(ARCANE_ORIGINAL_SOURCES
   MeshUtils.h
   MeshVariable.h
   MeshVariableArrayRef.h
-  MeshVariableArrayRefT.H
+  MeshVariableArrayRef.inst.h
   MeshVariableInfo.h
   MeshVariableRef.cc
   MeshVariableRef.h
   MeshVariableScalarRef.h
-  MeshVariableScalarRefT.H
+  MeshVariableScalarRef.inst.h
   MeshVisitor.cc
   MeshVisitor.h
   ModuleBuildInfo.cc
@@ -556,6 +570,11 @@ set(ARCANE_ORIGINAL_SOURCES
   ModuleProperty.h
   MultiArray2Variable.h
   MultiArray2VariableRef.h
+  NodesOfItemReorderer.h
+  NodesOfItemReorderer.cc
+  ContigMachineShMemWinBase.cc
+  ContigMachineShMemWinBase.h
+  ContigMachineShMemWin.h
   NullXmlDocumentHolder.cc
   Observable.h
   ObservablePool.h
@@ -579,9 +598,9 @@ set(ARCANE_ORIGINAL_SOURCES
   PostProcessorWriterBase.h
   PreciseOutputChecker.cc
   PreciseOutputChecker.h
-  PrivateVariableArrayT.H
+  PrivateVariableArray.inst.h
   PrivateVariableArrayTpl.cc
-  PrivateVariableScalarT.H
+  PrivateVariableScalar.inst.h
   PrivateVariableScalarTpl.cc
   Properties.cc
   Properties.h
@@ -637,6 +656,8 @@ set(ARCANE_ORIGINAL_SOURCES
   VariableAccessor.h
   VariableBuildInfo.cc
   VariableCollection.cc
+  VariableComparer.h
+  VariableComparer.cc
   VariableComputeFunction.h
   VariableDataTypeTraits.h
   VariableDependInfo.cc
@@ -674,7 +695,6 @@ set(ARCANE_ORIGINAL_SOURCES
   VerifierService.cc
   VerifierService.h
   XmlException.h
-  XmlInfo.h
   XmlNode.cc
   XmlNodeIterator.h
   XmlNodeList.cc

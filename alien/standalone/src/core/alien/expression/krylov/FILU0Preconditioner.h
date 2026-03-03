@@ -1,32 +1,9 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
-/*
- * Copyright 2020 IFPEN-CEA
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
-/*
- * FILU0Preconditioner.h
- *
- *  Created on: June 15, 2017
- *      Author: gratien
- */
 
 #pragma once
 
@@ -73,16 +50,31 @@ class FLUFactorisationAlgo
     algebra.allocate(AlgebraT::resource(matrix), m_xk);
 
     if (m_nb_factorization_iter == 0) {
-      BaseType::factorize(*this->m_lu_matrix, false);
+      if(this->m_block_size==1)
+        BaseType::factorize(*this->m_lu_matrix, false);
+      else
+      {
+        BaseType::blockFactorize(*this->m_lu_matrix);
+      }
     }
     else {
       factorizeMultiIter(*this->m_lu_matrix);
     }
     this->m_work.clear();
 
-    algebra.allocate(AlgebraT::resource(matrix), m_inv_diag);
-    algebra.assign(m_inv_diag, 1.);
-    algebra.computeInvDiag(*this->m_lu_matrix, m_inv_diag);
+    if(this->m_block_size==1)
+    {
+      algebra.allocate(AlgebraT::resource(matrix), m_inv_diag);
+      algebra.assign(m_inv_diag, 1.);
+      algebra.computeInvDiag(*this->m_lu_matrix, m_inv_diag);
+    }
+    else
+    {
+      m_inv_diag.setBlockSize(this->m_block_size*this->m_block_size) ;
+      algebra.allocate(AlgebraT::resource(matrix), m_inv_diag);
+      algebra.computeInvDiag(*this->m_lu_matrix, m_inv_diag);
+
+    }
 
     if (MatrixType::on_host_only) {
       if (this->m_is_parallel) {
@@ -172,7 +164,8 @@ class FLUFactorisationAlgo
 #ifdef ALIEN_USE_PERF_TIMER
     typename MatrixType::SentryType sentry(this->m_lu_matrix->timer(), "SolveL");
 #endif
-    if (MatrixType::on_host_only) {
+    if constexpr (MatrixType::on_host_only)
+    {
       CSRConstViewT<MatrixT> view(*this->m_lu_matrix);
       // clang-format off
       auto nrows  = view.nrows();
@@ -187,7 +180,8 @@ class FLUFactorisationAlgo
       // clang-format on
 
       std::copy(x_ptr, x_ptr + nrows, xk_ptr);
-      if (this->m_is_parallel) {
+      if (this->m_is_parallel)
+      {
         typedef typename LUSendRecvTraits<TagType>::vector_op_type SendRecvOpType;
         SendRecvOpType op(xk_ptr,
                           this->m_lu_matrix->getDistStructInfo().m_send_info,
@@ -213,7 +207,8 @@ class FLUFactorisationAlgo
           x_ptr[irow] = val;
         }
       }
-      else {
+      else
+      {
         for (std::size_t irow = 0; irow < nrows; ++irow) {
           ValueType val = y_ptr[irow];
           for (int k = kcol[irow]; k < dcol[irow]; ++k)
@@ -222,7 +217,123 @@ class FLUFactorisationAlgo
         }
       }
     }
-    else {
+    else
+    {
+      algebra.copy(x, xk);
+      algebra.copy(y, x);
+      algebra.addLMult(-1, *this->m_lu_matrix, xk, x);
+    }
+  }
+
+  template <typename AlgebraT>
+  void blockSolveL(AlgebraT& algebra,
+              VectorType const& y,
+              VectorType& x,
+              VectorType& xk) const
+  {
+#ifdef ALIEN_USE_PERF_TIMER
+    typename MatrixType::SentryType sentry(this->m_lu_matrix->timer(), "SolveL");
+#endif
+    if constexpr (MatrixType::on_host_only)
+    {
+#if defined (ALIEN_USE_EIGEN3)  && !defined(EIGEN3_DISABLED)
+      using namespace Eigen;
+      using Block2D     = Eigen::Matrix<ValueType,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> ;
+      using Block2DView = Eigen::Map<Block2D> ;
+      using Block1D     = Eigen::Matrix<ValueType,Dynamic,1> ;
+      using Block1DView = Eigen::Map<Block1D> ;
+
+      int N   = this->m_block_size ;
+      int NxN = N*N;
+
+      Block1D val(N);
+      CSRConstViewT<MatrixT> view(*this->m_lu_matrix);
+      // clang-format off
+      auto nrows  = view.nrows();
+      auto kcol   = view.kcol();
+      auto dcol   = view.dcol();
+      auto cols   = view.cols();
+      auto values = view.data();
+
+      auto y_ptr  = y.data();
+      auto x_ptr  = x.data();
+      auto xk_ptr = xk.data();
+      // clang-format on
+
+      std::copy(x_ptr, x_ptr + nrows*N, xk_ptr);
+      if (this->m_is_parallel)
+      {
+        typedef typename LUSendRecvTraits<TagType>::vector_op_type SendRecvOpType;
+        SendRecvOpType op(xk_ptr,
+                          this->m_lu_matrix->getDistStructInfo().m_send_info,
+                          this->m_lu_matrix->getSendPolicy(),
+                          xk_ptr,
+                          this->m_lu_matrix->getDistStructInfo().m_recv_info,
+                          this->m_lu_matrix->getRecvPolicy(),
+                          this->m_lu_matrix->getParallelMng(),
+                          nullptr);
+
+        auto& local_row_size = this->m_lu_matrix->getDistStructInfo().m_local_row_size;
+        int first_upper_ghost_index = this->m_lu_matrix->getDistStructInfo().m_first_upper_ghost_index;
+        op.lowerRecv();
+        op.upperSend();
+        for (std::size_t irow = 0; irow < nrows; ++irow)
+        {
+          //ValueType val = y_ptr[irow];
+          val = Block1DView(const_cast<ValueType*>(y_ptr+irow*N),N) ;
+          for (int k = kcol[irow]; k < dcol[irow]; ++k)
+          {
+            //val -= values[k] * xk_ptr[cols[k]];
+            val -= Block2DView(const_cast<ValueType*>(values+k*NxN),N,N) * Block1DView(xk_ptr+cols[k]*N,N) ;
+          }
+          for (int k = kcol[irow] + local_row_size[irow]; k < kcol[irow + 1]; ++k)
+          {
+            if (cols[k] < first_upper_ghost_index)
+            {
+              //val -= values[k] * xk_ptr[cols[k]];
+              val -= Block2DView(const_cast<ValueType*>(values+k*NxN),N,N) * Block1DView(xk_ptr+cols[k]*N,N) ;
+            }
+          }
+          //x_ptr[irow] = val;
+          Block1DView(x_ptr+irow*N,N) = val ;
+        }
+      }
+      else
+      {
+#ifdef PRINT_DEBUG_INFO
+        for (std::size_t irow = 0; irow < nrows; ++irow)
+        {
+          std::cout<<"XK["<<irow<<"]=\n";
+          for(int i=0;i<N;++i)
+            std::cout<<xk_ptr[irow*N+i]<<std::endl;
+        }
+#endif
+        for (std::size_t irow = 0; irow < nrows; ++irow)
+        {
+          //ValueType val = y_ptr[irow];
+          val = Block1DView(const_cast<ValueType*>(y_ptr+irow*N),N) ;
+#ifdef PRINT_DEBUG_INFO
+          std::cout<<"LSOLVE MAT["<<irow<<"]:"<<std::endl;
+#endif
+          for (int k = kcol[irow]; k < dcol[irow]; ++k)
+          {
+            //val -= values[k] * xk_ptr[cols[k]];
+            val -= Block2DView(const_cast<ValueType*>(values+k*NxN),N,N) * Block1DView(xk_ptr+cols[k]*N,N) ;
+#ifdef PRINT_DEBUG_INFO
+            std::cout<<Block2DView(const_cast<ValueType*>(values+k*NxN),N,N)<<std::endl;
+#endif
+          }
+          //x_ptr[irow] = val;
+          Block1DView(x_ptr+irow*N,N) = val ;
+#ifdef PRINT_DEBUG_INFO
+          std::cout<<"Y =\n"<<val<<std::endl ;
+#endif
+        }
+      }
+#endif
+    }
+    else
+    {
       algebra.copy(x, xk);
       algebra.copy(y, x);
       algebra.addLMult(-1, *this->m_lu_matrix, xk, x);
@@ -235,7 +346,8 @@ class FLUFactorisationAlgo
 #ifdef ALIEN_USE_PERF_TIMER
     typename MatrixType::SentryType sentry(this->m_lu_matrix->timer(), "SolveU");
 #endif
-    if (MatrixType::on_host_only) {
+    if constexpr (MatrixType::on_host_only)
+    {
       CSRConstViewT<MatrixT> view(*this->m_lu_matrix);
       // clang-format off
       auto nrows  = view.nrows();
@@ -291,11 +403,139 @@ class FLUFactorisationAlgo
         }
       }
     }
-    else {
+    else
+    {
       algebra.copy(x, xk);
       algebra.copy(y, x);
       algebra.addUMult(-1., *this->m_lu_matrix, xk, x);
       algebra.pointwiseMult(m_inv_diag, x, x);
+      //algebra.multInvDiag(*this->m_lu_matrix,x) ;
+    }
+  }
+
+  template <typename AlgebraT>
+  void blockSolveU(AlgebraT& algebra, VectorType const& y, VectorType& x, VectorType& xk) const
+  {
+#ifdef ALIEN_USE_PERF_TIMER
+    typename MatrixType::SentryType sentry(this->m_lu_matrix->timer(), "SolveU");
+#endif
+    if constexpr (MatrixType::on_host_only)
+    {
+#if defined (ALIEN_USE_EIGEN3)  && !defined(EIGEN3_DISABLED)
+      using namespace Eigen;
+      using Block2D     = Eigen::Matrix<ValueType,Eigen::Dynamic,Eigen::Dynamic,Eigen::RowMajor> ;
+      using Block2DView = Eigen::Map<Block2D> ;
+      using Block1D     = Eigen::Matrix<ValueType,Dynamic,1> ;
+      using Block1DView = Eigen::Map<Block1D> ;
+
+      int N   = this->m_block_size ;
+      int NxN = N*N;
+
+      Block1D val(N);
+
+      CSRConstViewT<MatrixT> view(*this->m_lu_matrix);
+      // clang-format off
+      auto nrows  = view.nrows();
+      auto kcol   = view.kcol();
+      auto dcol   = view.dcol();
+      auto cols   = view.cols();
+      auto values = view.data();
+
+      auto y_ptr  = y.data();
+      auto x_ptr  = x.data();
+      auto xk_ptr = xk.data();
+      // clang-format on
+
+      std::copy(x_ptr, x_ptr + nrows*N, xk_ptr);
+      if (this->m_is_parallel) {
+        auto& local_row_size = this->m_lu_matrix->getDistStructInfo().m_local_row_size;
+        int first_upper_ghost_index = this->m_lu_matrix->getDistStructInfo().m_first_upper_ghost_index;
+
+        typedef typename LUSendRecvTraits<TagType>::vector_op_type SendRecvOpType;
+        SendRecvOpType op(xk_ptr,
+                          this->m_lu_matrix->getDistStructInfo().m_send_info,
+                          this->m_lu_matrix->getSendPolicy(),
+                          xk_ptr,
+                          this->m_lu_matrix->getDistStructInfo().m_recv_info,
+                          this->m_lu_matrix->getRecvPolicy(),
+                          this->m_lu_matrix->getParallelMng(),
+                          nullptr);
+        op.upperRecv();
+        op.lowerSend();
+        for (std::size_t irow = 0; irow < nrows; ++irow) {
+          int dk = dcol[irow];
+          //ValueType val = y_ptr[irow];
+          val = Block1DView(const_cast<ValueType*>(y_ptr+irow*N),N) ;
+          for (int k = dk + 1; k < kcol[irow] + local_row_size[irow]; ++k) {
+            //val -= values[k] * xk_ptr[cols[k]];
+            val -= Block2DView(const_cast<ValueType*>(values+k*NxN),N,N) * Block1DView(xk_ptr+cols[k]*N,N) ;
+          }
+          for (int k = kcol[irow] + local_row_size[irow]; k < kcol[irow + 1]; ++k) {
+            if (cols[k] >= first_upper_ghost_index)
+            {
+              //val -= values[k] * xk_ptr[cols[k]];
+              val -= Block2DView(const_cast<ValueType*>(values+k*NxN),N,N) * Block1DView(xk_ptr+cols[k]*N,N) ;
+            }
+          }
+          //val = val / values[dk];
+          //x_ptr[irow] = val;
+          Block1DView(x_ptr+irow*N,N) = BaseType::inv(Block2DView(const_cast<ValueType*>(values+dk*NxN),N,N)) * val;
+        }
+      }
+      else
+      {
+
+#ifdef PRINT_DEBUG_INFO
+        for (std::size_t irow = 0; irow < nrows; ++irow)
+        {
+          std::cout<<"XK["<<irow<<"]=\n";
+          for(int i=0;i<N;++i)
+            std::cout<<xk_ptr[irow*N+i]<<std::endl;
+        }
+#endif
+        for (std::size_t irow = 0; irow < nrows; ++irow)
+        {
+#ifdef PRINT_DEBUG_INFO
+          std::cout<<"U SOLVE MAT["<<irow<<"]:"<<std::endl ;
+#endif
+          int dk = dcol[irow];
+          //ValueType val = y_ptr[irow];
+          val = Block1DView(const_cast<ValueType*>(y_ptr+irow*N),N) ;
+          for (int k = dk + 1; k < kcol[irow + 1]; ++k) {
+            //val -= values[k] * xk_ptr[cols[k]];
+            val -= Block2DView(const_cast<ValueType*>(values+k*NxN),N,N) * Block1DView(xk_ptr+cols[k]*N,N) ;
+#ifdef PRINT_DEBUG_INFO
+            std::cout<<Block2DView(const_cast<ValueType*>(values+k*NxN),N,N)<<std::endl;
+#endif
+          }
+          //val = val / values[dk];
+          //x_ptr[irow] = val;
+          Block1DView(x_ptr+irow*N,N) = BaseType::inv(Block2DView(const_cast<ValueType*>(values+dk*NxN),N,N)) * val;
+#ifdef PRINT_DEBUG_INFO
+          std::cout<<"Y["<<irow<<"]=\n"<<val<<std::endl;
+#endif
+        }
+
+#ifdef PRINT_DEBUG_INFO
+        for (std::size_t irow = 0; irow < nrows; ++irow)
+        {
+          int dk = dcol[irow];
+          std::cout<<"INV DIAG["<<irow<<"]\n"<<BaseType::inv(Block2DView(const_cast<ValueType*>(values+dk*NxN),N,N))<<std::endl ;
+          std::cout<<"Y["<<irow<<"]=\n";
+          for(int i=0;i<N;++i)
+            std::cout<<x_ptr[irow*N+i]<<std::endl;
+        }
+#endif
+      }
+#endif
+    }
+    else
+    {
+      algebra.copy(x, xk);
+      algebra.copy(y, x);
+      algebra.addUMult(-1., *this->m_lu_matrix, xk, x);
+      algebra.copy(x, xk);
+      algebra.multDiag(m_inv_diag, xk, x);
       //algebra.multInvDiag(*this->m_lu_matrix,x) ;
     }
   }
@@ -308,10 +548,18 @@ class FLUFactorisationAlgo
     //
     //     L.X1 = Y
     //
-
     algebra.copy(x, this->m_x);
-    for (int iter = 0; iter < m_nb_solver_iter; ++iter) {
-      solveL(algebra, x, this->m_x, m_xk);
+    if(this->m_block_size==1)
+    {
+      for (int iter = 0; iter < m_nb_solver_iter; ++iter) {
+        solveL(algebra, x, this->m_x, m_xk);
+      }
+    }
+    else
+    {
+      for (int iter = 0; iter < m_nb_solver_iter; ++iter) {
+        blockSolveL(algebra, x, this->m_x, m_xk);
+      }
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -319,8 +567,17 @@ class FLUFactorisationAlgo
     // Solve U.X = L-1(Y)
     //
     algebra.copy(this->m_x, y);
-    for (int iter = 0; iter < m_nb_solver_iter; ++iter) {
-      solveU(algebra, this->m_x, y, m_xk);
+    if(this->m_block_size==1)
+    {
+      for (int iter = 0; iter < m_nb_solver_iter; ++iter) {
+        solveU(algebra, this->m_x, y, m_xk);
+      }
+    }
+    else
+    {
+      for (int iter = 0; iter < m_nb_solver_iter; ++iter) {
+        blockSolveU(algebra, this->m_x, y, m_xk);
+      }
     }
   }
 

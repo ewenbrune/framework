@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* SubDomain.cc                                                (C) 2000-2024 */
+/* SubDomain.cc                                                (C) 2000-2025 */
 /*                                                                           */
 /* Gestionnaire du sous-domaine.                                             */
 /*---------------------------------------------------------------------------*/
@@ -21,11 +21,11 @@
 #include "arcane/utils/TraceAccessor.h"
 #include "arcane/utils/MemoryInfo.h"
 #include "arcane/utils/List.h"
-#include "arcane/utils/Property.h"
 #include "arcane/utils/TraceAccessor2.h"
 #include "arcane/utils/ValueConvert.h"
 #include "arcane/utils/IProcessorAffinityService.h"
 #include "arcane/utils/IProfilingService.h"
+#include "arccore/common/internal/Property.h"
 
 #include "arcane/core/ISubDomain.h"
 #include "arcane/core/IVariableMng.h"
@@ -57,26 +57,18 @@
 #include "arcane/core/IIOMng.h"
 #include "arcane/core/IMainFactory.h"
 #include "arcane/core/Timer.h"
-#include "arcane/core/CommonVariables.h"
 #include "arcane/core/XmlNode.h"
 #include "arcane/core/ICaseDocument.h"
 #include "arcane/core/IPhysicalUnitSystem.h"
 #include "arcane/core/IPhysicalUnitSystemService.h"
-#include "arcane/core/IService.h"
-#include "arcane/core/IServiceInfo.h"
-#include "arcane/core/ServiceUtils.h"
-#include "arcane/core/IRessourceMng.h"
 #include "arcane/core/ISession.h"
 #include "arcane/core/IMeshStats.h"
-#include "arcane/core/IParallelSuperMng.h"
 #include "arcane/core/IParallelReplication.h"
 #include "arcane/core/IServiceLoader.h"
-#include "arcane/core/ICheckpointReader.h"
 #include "arcane/core/IMeshPartitioner.h"
 #include "arcane/core/ICaseMeshMasterService.h"
 #include "arcane/core/ILoadBalanceMng.h"
 #include "arcane/core/CaseNodeNames.h"
-#include "arcane/core/ModuleBuildInfo.h"
 #include "arcane/core/Observable.h"
 #include "arcane/core/VariableCollection.h"
 #include "arcane/core/SubDomainBuildInfo.h"
@@ -85,9 +77,9 @@
 #include "arcane/core/IMeshMng.h"
 #include "arcane/core/MeshHandle.h"
 #include "arcane/core/ObserverPool.h"
-#include "arcane/core/ConfigurationPropertyReader.h"
 #include "arcane/core/parallel/IStat.h"
 
+#include "arcane/core/internal/ConfigurationPropertyReader.h"
 #include "arcane/core/internal/IDataInternal.h"
 #include "arcane/core/internal/ICaseMngInternal.h"
 #include "arcane/core/internal/IParallelMngInternal.h"
@@ -480,7 +472,7 @@ initialize()
     info() << "DeviceInfo: name=" << device_info.name();
     info() << "DeviceInfo: description=" << device_info.description();
 
-    if (Accelerator::impl::isAcceleratorPolicy(runner.executionPolicy())){
+    if (isAcceleratorPolicy(runner.executionPolicy())){
       m_parallel_mng->_internalApi()->setDefaultRunner(runner);
       m_all_replica_parallel_mng->_internalApi()->setDefaultRunner(runner);
     }
@@ -943,7 +935,7 @@ checkId(const String& where,const String& id)
   if (!isalpha(str[0]))
     throw BadIDException(where,id);
   for( Int64 i=1; i<len; ++i )
-    if (!isalpha(str[i]) && !isdigit(str[i]) && str[i]!='_' && str[i]!='.')
+    if (!isalpha(str[i]) && !isdigit(str[i]) && str[i] != '_' && str[i] != '.' && str[i] != '-')
       throw BadIDException(where,id);
 }
 

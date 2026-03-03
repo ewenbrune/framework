@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* MeshUtils.cc                                                (C) 2000-2025 */
+/* MeshUtils.cc                                                (C) 2000-2026 */
 /*                                                                           */
 /* Fonctions diverses sur les éléments du maillage.                          */
 /*---------------------------------------------------------------------------*/
@@ -45,6 +45,7 @@
 #include "arcane/core/ITiedInterface.h"
 #include "arcane/core/SharedVariable.h"
 #include "arcane/core/MeshVisitor.h"
+#include "arcane/core/IMeshUtilities.h"
 #include "arcane/core/IVariableSynchronizer.h"
 #include "arcane/core/UnstructuredMeshConnectivity.h"
 #include "arcane/core/datatype/DataAllocationInfo.h"
@@ -1909,7 +1910,7 @@ checkUniqueIdsHashCollective(IItemFamily* family, IHashAlgorithm* hash_algo,
     tm->info() << "HASH_RESULT family=" << family->name()
                << " v=" << hash_str << " expected=" << expected_hash;
   if (!expected_hash.empty() && hash_str != expected_hash)
-    ARCANE_FATAL("Bad hash for uniqueId() for family '{0}' v={1} expected='{2}'",
+    ARCANE_FATAL("Bad hash for uniqueId() for family '{0}' v='{1}' expected='{2}'",
                  family->fullName(), hash_str, expected_hash);
 }
 
@@ -1947,6 +1948,36 @@ generateHashUniqueId(SmallSpan<const Int64> nodes_unique_id)
   Int64 new_uid = abs(hash);
   ARCANE_ASSERT(new_uid >= 0, ("UniqueId is not >= 0"));
   return new_uid;
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+void MeshUtils::
+computeAndSetOwnerForNodes(IMesh* mesh)
+{
+  ARCANE_CHECK_POINTER(mesh);
+  mesh->utilities()->computeAndSetOwnersForNodes();
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+void MeshUtils::
+computeAndSetOwnerForEdges(IMesh* mesh)
+{
+  ARCANE_CHECK_POINTER(mesh);
+  mesh->utilities()->computeAndSetOwnersForEdges();
+}
+
+/*---------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
+void MeshUtils::
+computeAndSetOwnerForFaces(IMesh* mesh)
+{
+  ARCANE_CHECK_POINTER(mesh);
+  mesh->utilities()->computeAndSetOwnersForFaces();
 }
 
 /*---------------------------------------------------------------------------*/

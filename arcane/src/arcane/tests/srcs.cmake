@@ -20,6 +20,7 @@ set(ARCANE_SOURCES
   ModuleSimpleHydroDepend.cc
   MeshMergeBoundariesUnitTest.cc
   MeshMergeNodesUnitTest.cc
+  MeshReaderUnitTest.cc
   MeshUnitTest.cc
   MultipleMeshUnitTest.cc
   ThreadUnitTest.cc
@@ -81,8 +82,12 @@ set(ARCANE_SOURCES
   TimeHistoryAdderTestModule.cc
   MeshCriteriaLoadBalanceMngTestModule.cc
   ParameterOptionTest.cc
+  StackTraceUnitTest.cc
+  MDVariableUnitTest.cc
 )
-
+set(ARCANE_ACCELERATOR_SOURCES
+  ArcaneTestStandaloneSubDomain.cc
+)
 set(AXL_FILES
   CheckpointTester
   SimpleHydro
@@ -97,6 +102,7 @@ set(AXL_FILES
   TestUnitTest
   MeshMergeNodesUnitTest
   MeshUnitTest
+  MeshReaderUnitTest
   ThreadUnitTest
   TaskUnitTest
   IosUnitTest
@@ -119,10 +125,6 @@ set(AXL_FILES
   geometry/GeometryUnitTest
   MeshPolyhedralTest
   HydroAdditionalTest
-  accelerator/SimpleHydroAccelerator
-  accelerator/AcceleratorReduceUnitTest
-  accelerator/AcceleratorScanUnitTest
-  accelerator/AcceleratorFilterUnitTest
   PDESRandomNumberGeneratorUnitTest
   RandomNumberGeneratorUnitTest
   ServiceInterface1ImplTest
@@ -135,4 +137,3 @@ set(AXL_FILES
   MeshCriteriaLoadBalanceMngTest
   ParameterOptionTest
 )
-

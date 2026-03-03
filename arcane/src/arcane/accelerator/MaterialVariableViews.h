@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* MaterialVariableViews.h                                     (C) 2000-2024 */
+/* MaterialVariableViews.h                                     (C) 2000-2026 */
 /*                                                                           */
 /* Gestion des vues sur les variables matériaux pour les accélérateurs.      */
 /*---------------------------------------------------------------------------*/
@@ -13,8 +13,6 @@
 #define ARCANE_ACCELERATOR_MATERIALVARIABLEVIEWS_H
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
-
-#include "arcane/utils/ArcaneCxx20.h"
 
 #include "arcane/core/materials/IMeshMaterialVariable.h"
 #include "arcane/core/materials/MeshMaterialVariableRef.h"
@@ -46,6 +44,8 @@ class ARCANE_ACCELERATOR_EXPORT MatVariableViewBase
 
   // Pour l'instant n'utilise pas encore les paramètres
   MatVariableViewBase(const ViewBuildInfo&, IMeshMaterialVariable*);
+  // Pour l'instant n'utilise pas encore les paramètres
+  MatVariableViewBase() = default;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -69,6 +69,7 @@ class MatItemVariableScalarInViewT
   : MatVariableViewBase(vbi, var)
   , m_value(v)
   {}
+  MatItemVariableScalarInViewT() = default;
 
   //! Opérateur d'accès pour l'entité \a item
   ARCCORE_HOST_DEVICE const DataType& operator[](ComponentItemLocalId lid) const
@@ -101,7 +102,7 @@ class MatItemVariableScalarInViewT
 
  private:
 
-  ArrayView<DataType>* m_value;
+  ArrayView<DataType>* m_value = nullptr;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -129,6 +130,7 @@ class MatItemVariableScalarOutViewT
   : MatVariableViewBase(vbi, var)
   , m_value(v)
   {}
+  MatItemVariableScalarOutViewT() = default;
 
   //! Opérateur d'accès pour l'entité \a item
   ARCCORE_HOST_DEVICE Accessor operator[](ComponentItemLocalId lid) const
@@ -167,13 +169,13 @@ class MatItemVariableScalarOutViewT
 
  private:
 
-  ArrayView<DataType>* m_value;
+  ArrayView<DataType>* m_value = nullptr;
 };
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 /*!
- * \brief Vue en écriture pour les variables materiaux scalaire
+ * \brief Vue en écriture pour les variables materiaux scalaire.
  */
 template <typename DataType> auto
 viewOut(const ViewBuildInfo& vbi, CellMaterialVariableScalarRef<DataType>& var)

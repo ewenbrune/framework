@@ -1,6 +1,6 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
@@ -372,23 +372,60 @@ void SimpleCSRMatrixMultT<ValueT>::_seqMultBlock(const VectorType& x, VectorType
   Real const* matrix = m_matrix_impl.m_matrix.getDataPtr();
   const Integer block_size = m_matrix_impl.block()->size();
   ConstArrayView<Integer> cols = m_matrix_impl.m_matrix.getCSRProfile().getCols();
-  ConstArrayView<Integer> row_offset =
-  m_matrix_impl.m_matrix.getCSRProfile().getRowOffset();
-  for (Integer irow = 0; irow < m_matrix_impl.m_local_size; ++irow) {
+  ConstArrayView<Integer> row_offset = m_matrix_impl.m_matrix.getCSRProfile().getRowOffset();
+  Real* yptr = y_ptr ;
+  for (Integer irow = 0; irow < m_matrix_impl.m_local_size; ++irow)
+  {
     Integer off = row_offset[irow];
     Integer off2 = row_offset[irow + 1];
     Real const* m = matrix + off * block_size * block_size;
     for (Integer ieq = 0; ieq < block_size; ++ieq)
-      y_ptr[ieq] = 0.;
-    for (Integer jcol = off; jcol < off2; ++jcol) {
+      yptr[ieq] = 0.;
+    for (Integer jcol = off; jcol < off2; ++jcol)
+    {
       Real const* ptr = x_ptr + cols[jcol] * block_size;
       for (Integer ieq = 0; ieq < block_size; ++ieq)
         for (Integer iu = 0; iu < block_size; ++iu)
-          y_ptr[ieq] += m[iu + block_size * ieq] * ptr[iu];
+          yptr[ieq] += m[iu + block_size * ieq] * ptr[iu];
       m += block_size * block_size;
     }
-    y_ptr += block_size;
+    yptr += block_size;
   }
+
+  /*
+  for(int il=0;il<m_matrix_impl.m_local_size;++il)
+  {
+    std::cout<<"X["<<il<<"]:";
+    for(int i=0;i<block_size;++i)
+        std::cout<<x_ptr[il*block_size+i]<<",";
+    std::cout<<std::endl;
+  }
+  for(int il=0;il<m_matrix_impl.m_local_size;++il)
+  {
+    std::cout<<"Y["<<il<<"]:";
+    for(int i=0;i<block_size;++i)
+        std::cout<<y_ptr[il*block_size+i]<<",";
+    std::cout<<std::endl;
+  }
+  for(std::size_t irow=0;irow<m_matrix_impl.m_local_size;++irow)
+  {
+    for(int ieq=0;ieq<block_size;++ieq)
+    {
+      std::cout<<"LINE["<<irow<<","<<ieq<<"] : ";
+      ValueType value = 0. ;
+      Integer off = row_offset[irow];
+      Integer off2 = row_offset[irow + 1];
+      Real const* m = matrix + off * block_size * block_size;
+      for (Integer jcol = off; jcol < off2; ++jcol)
+      {
+        Real const* ptr = x_ptr + cols[jcol] * block_size;
+        for (Integer iu = 0; iu < block_size; ++iu)
+          value += m[iu + block_size * ieq] * ptr[iu];
+        m += block_size * block_size;
+      }
+      std::cout<<"\nY_CPU["<<irow<<","<<ieq<<"]:"<<value<<std::endl;
+    }
+  }*/
 }
 
 /*---------------------------------------------------------------------------*/
@@ -557,6 +594,23 @@ const VectorType& x_impl, VectorType& y_impl) const
   }
 }
 
+
+template <typename ValueT>
+void SimpleCSRMatrixMultT<ValueT>::multDiag(VectorType& y) const
+{
+  Real* y_ptr = y.getDataPtr();
+  CSRConstViewT<MatrixType> view(m_matrix_impl);
+  // clang-format off
+  auto nrows  = view.nrows() ;
+  auto kcol   = view.kcol() ;
+  auto dcol   = view.dcol() ;
+  auto cols   = view.cols() ;
+  auto values = view.data() ;
+  // clang-format on
+  for (Integer irow = 0; irow < nrows; ++irow)
+    y_ptr[irow] = y_ptr[irow] * values[dcol[irow]];
+}
+
 template <typename ValueT>
 void SimpleCSRMatrixMultT<ValueT>::multInvDiag(VectorType& y) const
 {
@@ -574,6 +628,36 @@ void SimpleCSRMatrixMultT<ValueT>::multInvDiag(VectorType& y) const
 }
 
 template <typename ValueT>
+void SimpleCSRMatrixMultT<ValueT>::computeDiag(VectorType& y) const
+{
+  Real* y_ptr = y.getDataPtr();
+
+  CSRConstViewT<MatrixType> view(m_matrix_impl);
+  // clang-format off
+  auto nrows  = view.nrows() ;
+  auto kcol   = view.kcol() ;
+  auto dcol   = view.dcol() ;
+  auto cols   = view.cols() ;
+  auto values = view.data() ;
+  // clang-format on
+  if(m_matrix_impl.blockSize()==1)
+  {
+    for (Integer irow = 0; irow < nrows; ++irow)
+      y_ptr[irow] = values[dcol[irow]];
+  }
+  else
+  {
+    Integer block_size = m_matrix_impl.blockSize();
+    Integer block2_size = block_size*block_size ;
+    for (Integer irow = 0; irow < nrows; ++irow)
+    {
+      for(Integer ieq=0;ieq<block_size;++ieq)
+        y_ptr[irow*block_size+ieq] = values[dcol[irow]*block2_size+ieq*block_size+ieq];
+    }
+  }
+}
+
+template <typename ValueT>
 void SimpleCSRMatrixMultT<ValueT>::computeInvDiag(VectorType& y) const
 {
   Real* y_ptr = y.getDataPtr();
@@ -586,8 +670,50 @@ void SimpleCSRMatrixMultT<ValueT>::computeInvDiag(VectorType& y) const
   auto cols   = view.cols() ;
   auto values = view.data() ;
   // clang-format on
-  for (Integer irow = 0; irow < nrows; ++irow)
-    y_ptr[irow] = 1. / values[dcol[irow]];
+  if(m_matrix_impl.blockSize()==1)
+  {
+    for (Integer irow = 0; irow < nrows; ++irow)
+      y_ptr[irow] = 1. / values[dcol[irow]];
+  }
+  else
+  {
+    Integer block_size = m_matrix_impl.blockSize();
+    Integer block2_size = block_size*block_size ;
+    for (Integer irow = 0; irow < nrows; ++irow)
+    {
+      for(Integer ieq=0;ieq<block_size;++ieq)
+      {
+        y_ptr[irow*block_size+ieq] = 1. / values[dcol[irow]*block2_size+ieq*block_size+ieq];
+      }
+    }
+    /*
+    auto kcol   = view.kcol() ;
+    for(int il=0;il<nrows;++il)
+    {
+      std::cout<<"MAT["<<il<<","<<il<<"]:";
+      for(int k=kcol[il];k<kcol[il+1];++k)
+      {
+        std::cout<<"("<<cols[k]<<",";
+        for(int ieq=0;ieq<block_size;++ieq)
+          for(int ju=0;ju<block_size;++ju)
+            std::cout<<values[k*block2_size+ieq*block_size +ju]<<",";
+        std::cout<<")"<<std::endl;
+      }
+    }
+    for(int il=0;il<nrows;++il)
+    {
+      std::cout<<"DIAG["<<il<<"]:";
+      for(int i=0;i<block_size;++i)
+          std::cout<<y_ptr[il*block_size+i]<<",";
+      std::cout<<std::endl;
+      std::cout<<"MAT["<<il<<","<<il<<"]:";
+      auto mat_offset = kcol[il]*block2_size ;
+      for(int ieq=0;ieq<block_size;++ieq)
+        for(int ju=0;ju<block_size;++ju)
+          std::cout<<values[mat_offset+ieq*block_size +ju]<<",";
+      std::cout<<std::endl;
+    }*/
+  }
 }
 
 /*---------------------------------------------------------------------------*/

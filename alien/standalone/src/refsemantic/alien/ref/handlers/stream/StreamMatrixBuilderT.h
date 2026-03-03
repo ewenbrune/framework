@@ -1,6 +1,6 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
@@ -386,7 +386,7 @@ void StreamMatrixBuilderT<ValueT>::computeProfile()
   m_matrix_impl->allocate();
   m_matrix_impl->internal()->getValues().fill(0.);
 
-  Integer icount = 0;
+  //Integer icount = 0;
   Integer offset = 0;
   if (m_order_row_cols_opt) {
     for (Integer row = 0; row < m_local_size; ++row) {
@@ -404,7 +404,7 @@ void StreamMatrixBuilderT<ValueT>::computeProfile()
           upper_diag_offset[row] = offset + ordered_idx;
         }
         ++ordered_idx;
-        ++icount;
+        //++icount;
       }
       offset += m_row_size[row];
     }
@@ -422,7 +422,7 @@ void StreamMatrixBuilderT<ValueT>::computeProfile()
         if (!isLocal(col_uid))
           VALUE_OF(iter) += ghost_offset;
         cols[offset + VALUE_OF(iter)] = col_uid;
-        ++icount;
+        //++icount;
       }
       offset += m_row_size[row];
     }
@@ -462,6 +462,8 @@ void StreamMatrixBuilderT<ValueT>::computeProfile()
     m_matrix_impl->parallelStart(m_offset, m_parallel_mng);
   else
     m_matrix_impl->sequentialStart();
+
+  profile.getColOrdering() = SimpleCSRInternal::CSRStructInfo::eOwnAndGhost;
   m_col_ordering = eOwnAndGhost;
   m_state = eStart;
 

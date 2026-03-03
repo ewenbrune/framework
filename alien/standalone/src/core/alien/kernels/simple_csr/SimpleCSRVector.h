@@ -1,25 +1,15 @@
-/*
- * Copyright 2020 IFPEN-CEA
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
+//-----------------------------------------------------------------------------
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// See the top-level COPYRIGHT file for details.
+// SPDX-License-Identifier: Apache-2.0
+//-----------------------------------------------------------------------------
 
 #pragma once
 
 #include <alien/core/block/VBlockOffsets.h>
 #include <alien/core/impl/IVectorImpl.h>
+#include <alien/core/impl/MultiVectorImpl.h>
 #include <alien/data/ISpace.h>
 #include <alien/kernels/simple_csr/SimpleCSRBackEnd.h>
 #include <alien/kernels/simple_csr/SimpleCSRPrecomp.h>
@@ -41,22 +31,41 @@ class SimpleCSRVector : public IVectorImpl
   //! Constructeur sans association ? un MultiImpl
   SimpleCSRVector()
   : IVectorImpl(nullptr, AlgebraTraits<BackEnd::tag::simplecsr>::name())
-  , m_local_size(0)
-  , m_vblock(nullptr)
   {}
 
   //! Constructeur avec association ? un MultiImpl
   SimpleCSRVector(const MultiVectorImpl* multi_impl)
   : IVectorImpl(multi_impl, AlgebraTraits<BackEnd::tag::simplecsr>::name())
-  , m_local_size(0)
-  , m_vblock(nullptr)
   {}
+
+  Integer blockSize() const
+  {
+    if (block())
+    {
+       return block()->size();
+    }
+    else if (vblock()) {
+      return 1 ;
+    }
+    else {
+      return m_own_block_size ;
+    }
+  }
+
+  void setBlockSize(Integer block_size)
+  {
+    if(this->m_multi_impl)
+      const_cast<MultiVectorImpl*>(this->m_multi_impl)->setBlockInfos(block_size) ;
+    else
+      m_own_block_size = block_size ;
+  }
 
   void allocate()
   {
-    m_values.resize(m_local_size);
+    auto block_size = blockSize() ;
+    m_values.resize(m_local_size*block_size);
     if (this->vblock())
-      m_vblock = new VBlockImpl(*this->vblock(), this->distribution());
+      m_vblock.reset(new VBlockImpl(*this->vblock(), this->distribution()));
   }
 
   void resize(Integer alloc_size) const
@@ -64,8 +73,7 @@ class SimpleCSRVector : public IVectorImpl
     if (alloc_size > m_local_size)
       m_values.resize(alloc_size);
     if (this->vblock()) {
-      delete m_vblock;
-      m_vblock = new VBlockImpl(*this->vblock(), this->distribution());
+      m_vblock.reset(new VBlockImpl(*this->vblock(), this->distribution()));
     }
   }
 
@@ -74,15 +82,14 @@ class SimpleCSRVector : public IVectorImpl
   void clear() override
   {
     m_values.dispose();
-    delete m_vblock;
-    m_vblock = nullptr;
+    m_vblock.reset();
   }
 
   // values on local part
-  Arccore::ArrayView<ValueType> values() { return m_values.subView(0, m_local_size); }
+  Arccore::ArrayView<ValueType> values() { return m_values.subView(0, m_local_size*blockSize()); }
   Arccore::ConstArrayView<ValueType> values() const
   {
-    return m_values.subConstView(0, m_local_size);
+    return m_values.subConstView(0, m_local_size*blockSize());
   }
 
   // Algebra adds ghost values
@@ -114,8 +121,7 @@ class SimpleCSRVector : public IVectorImpl
     alien_debug([&] { cout() << "Initializing SimpleCSRVector " << this; });
     if (this->m_multi_impl) {
       if (this->vblock()) {
-        delete m_vblock;
-        m_vblock = new VBlockImpl(*this->vblock(), this->distribution());
+        m_vblock.reset(new VBlockImpl(*this->vblock(), this->distribution()));
       }
       m_local_size = this->scalarizedLocalSize();
     }
@@ -125,7 +131,30 @@ class SimpleCSRVector : public IVectorImpl
       m_local_size = m_own_distribution.localSize();
     }
     if (need_allocate) {
-      m_values.resize(m_local_size);
+      m_values.resize(m_local_size*m_own_block_size);
+      m_values.fill(ValueT());
+    }
+  }
+
+  void init(const VectorDistribution& dist,
+            Integer block_size,
+            const bool need_allocate)
+  {
+    alien_debug([&] { cout() << "Initializing SimpleCSRVector " << this; });
+    setBlockSize(block_size) ;
+    if (this->m_multi_impl) {
+      if (this->vblock()) {
+        m_vblock.reset(new VBlockImpl(*this->vblock(), this->distribution()));
+      }
+      m_local_size = this->distribution().localSize();
+    }
+    else {
+      // Not associated vector
+      m_own_distribution = dist;
+      m_local_size = m_own_distribution.localSize();
+    }
+    if (need_allocate) {
+      m_values.resize(m_local_size*m_own_block_size);
       m_values.fill(ValueT());
     }
   }
@@ -143,7 +172,7 @@ class SimpleCSRVector : public IVectorImpl
     if (this->m_multi_impl)
       return IVectorImpl::scalarizedLocalSize();
     else
-      return m_own_distribution.localSize();
+      return m_own_distribution.localSize()*m_own_block_size;
   }
 
   Arccore::Integer scalarizedGlobalSize() const override
@@ -151,7 +180,7 @@ class SimpleCSRVector : public IVectorImpl
     if (this->m_multi_impl)
       return IVectorImpl::scalarizedGlobalSize();
     else
-      return m_own_distribution.globalSize();
+      return m_own_distribution.globalSize()*m_own_block_size;
   }
 
   Arccore::Integer scalarizedOffset() const override
@@ -159,7 +188,7 @@ class SimpleCSRVector : public IVectorImpl
     if (this->m_multi_impl)
       return IVectorImpl::scalarizedOffset();
     else
-      return m_own_distribution.offset();
+      return m_own_distribution.offset()*m_own_block_size;
   }
 
   const VBlockImpl& vblockImpl() const { return *m_vblock; }
@@ -183,10 +212,11 @@ class SimpleCSRVector : public IVectorImpl
   }
 
  private:
-  mutable UniqueArray<ValueT> m_values;
-  Integer m_local_size = 0;
-  mutable VBlockImpl* m_vblock = nullptr;
-  VectorDistribution m_own_distribution;
+  mutable UniqueArray<ValueT>         m_values;
+  Integer                             m_local_size = 0;
+  Integer                             m_own_block_size = 1 ;
+  VectorDistribution                  m_own_distribution;
+  mutable std::unique_ptr<VBlockImpl> m_vblock ;
 };
 
 /*---------------------------------------------------------------------------*/

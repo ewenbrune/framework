@@ -40,6 +40,9 @@ set(USE_AXLSTAR TRUE)
 set(USE_ARCCON TRUE)
 set(USE_PROJECT_CONFIG_HEADER TRUE)
 set(REQUIRE_INSTALL_PROJECTTARGETS TRUE)
+set(BUILDSYSTEM_INSTALL_TARGETS TRUE)
+set(BUILDSYSTEM_INSTALL_EXPORT TRUE)
+
 set(Arccon_USE_CMAKE_CONFIG TRUE)
 set(Arccore_USE_CMAKE_CONFIG TRUE)
 set(Axlstar_USE_CMAKE_CONFIG TRUE)
@@ -47,7 +50,7 @@ set(Arcane_USE_CMAKE_CONFIG TRUE)
 #set(Alien_USE_CMAKE_CONFIG TRUE)
 #set(PETSc_USE_CMAKE_CONFIG TRUE)
 #set(PETSc_USE_PKGCONFIG TRUE)
-#set(Hypre_USE_CMAKE_CONFIG TRUE)
+set(Hypre_USE_CMAKE_CONFIG TRUE)
 #set(MTL4_USE_CMAKE_CONFIG TRUE)
 #set(SuperLU_USE_CMAKE_CONFIG TRUE)
 set(composyx_USE_CMAKE_CONFIG TRUE)
@@ -63,35 +66,33 @@ set(HDF5_USE_CMAKE_CONFIG TRUE)
 set(BUILDSYSTEM_DLL_COPY_DIRECTORY ${ARCANEFRAMEWORK_BINARY_DIR}/lib)
 
 # Path to configuration files for Alien
-set(ALIEN_CMAKE_CONFIG_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
-# Path to local build-system
-set(ALIEN_BUILDSYSTEM_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/build-system")
+set(ALIEN_CMAKE_CONFIG_PATH "${INFRA_BUILDSYSTEM_PATH}/alien")
 
 find_package(Arccon REQUIRED)
 include(${ARCCON_CMAKE_COMMANDS}) # needed when working with 'inline' (ie not installed) Arccon
 
-include(${ALIEN_CMAKE_CONFIG_PATH}/Functions.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/alien/Functions.cmake)
 
-include(${ALIEN_BUILDSYSTEM_PATH}/LoadBuildSystem.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/tools/LoadBuildSystem.cmake)
 
 # Default options (verbose, cxx11)
 if (ALIEN_LOAD_DEFAULT_COMPILER_OPTIONS)
-  include(${ALIEN_BUILDSYSTEM_PATH}/LoadDefaultOptions.cmake)
+  include(${INFRA_BUILDSYSTEM_PATH}/tools/LoadDefaultOptions.cmake)
 endif()
 
 # root file for packages (if defined)
-include(${ALIEN_BUILDSYSTEM_PATH}/LoadDefaultPackageFile.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/tools/LoadDefaultPackageFile.cmake)
 
 # default metas (win32/linux)
-include(${ALIEN_BUILDSYSTEM_PATH}/LoadDefaultMetas.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/tools/LoadDefaultMetas.cmake)
 
 if (ALIEN_LOAD_DEFAULT_COMPILER_OPTIONS)
   # default compilation options
-  include(${ALIEN_BUILDSYSTEM_PATH}/LoadDefaultCompilationFlags.cmake)
+  include(${INFRA_BUILDSYSTEM_PATH}/tools/LoadDefaultCompilationFlags.cmake)
 endif()
 
 # default packages (mono et glib)
-include(${ALIEN_BUILDSYSTEM_PATH}/LoadDefaultPackages.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/tools/LoadDefaultPackages.cmake)
 
 # default languages  (axl)
 # NB: after packages
@@ -99,10 +100,10 @@ include(${ALIEN_BUILDSYSTEM_PATH}/LoadDefaultPackages.cmake)
 #include(LoadDefaultLanguages)
 
 # Alien Options
-include(${ALIEN_CMAKE_CONFIG_PATH}/LoadAlienOptions.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/alien/LoadAlienOptions.cmake)
 
 # Alien's external dependencies
-include(${ALIEN_CMAKE_CONFIG_PATH}/LoadAlienPackages.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/alien/LoadAlienPackages.cmake)
 
 # Include Arcane cmake functions
 include(${ARCANE_CMAKE_COMMANDS})
@@ -114,7 +115,7 @@ if (ENABLE_CUDA)
 
   # A partir de CMake 3.18, il faut spécifier une architecture GPU pour CUDA
   if (NOT CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 50 60 70 80)
+    set(CMAKE_CUDA_ARCHITECTURES 50 60 70 80 90)
   endif()
   enable_language(CUDA)
 endif()
@@ -145,7 +146,7 @@ message_separator()
 
 logStatus("Load alien specifics tools :")
 
-include(${ALIEN_CMAKE_CONFIG_PATH}/LoadAlienLegacyConfigFile.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/alien/LoadAlienLegacyConfigFile.cmake)
 
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
@@ -165,9 +166,11 @@ add_subdirectory(modules/trilinos)
 add_subdirectory(modules/hpddm)
 add_subdirectory(modules/composyx)
 add_subdirectory(modules/ifpen_solvers)
+add_subdirectory(modules/core_solvers)
 add_subdirectory(modules/arcane_tools)
+if(NOT ALIEN_USE_SYCL)
 add_subdirectory(modules/interface_c)
-
+endif()
 message_separator()
 logStatus("Loading tests...")
 
@@ -201,7 +204,7 @@ GenerateCMakeConfig()
 # ----------------------------------------------------------------------------
 # ----------------------------------------------------------------------------
 
-include(${ALIEN_BUILDSYSTEM_PATH}/FinishBuildSystem.cmake)
+include(${INFRA_BUILDSYSTEM_PATH}/tools/FinishBuildSystem.cmake)
 
 message_separator()
 

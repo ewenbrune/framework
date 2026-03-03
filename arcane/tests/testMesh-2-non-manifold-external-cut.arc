@@ -9,15 +9,15 @@
  <meshes>
    <mesh>
      <filename>mesh_with_loose_items.msh</filename>
-     <non-manifold-mesh>true</non-manifold-mesh>
+     <cell-dimension-kind>non-manifold</cell-dimension-kind>
      <partitioner>External</partitioner>
-     <face-numbering-version>0</face-numbering-version>
    </mesh>
  </meshes>
 
  <unit-test-module>
   <test name="MeshUnitTest">
     <write-mesh-service-name>VtkLegacyMeshWriter</write-mesh-service-name>
+    <test-adjency>false</test-adjency>
   </test>
  </unit-test-module>
 

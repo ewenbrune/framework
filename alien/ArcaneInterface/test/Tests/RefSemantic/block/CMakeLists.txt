@@ -10,6 +10,12 @@ foreach (BUILDER Profiled Stream Import)
         linkLibraries(refmvhandlers.Block${BUILDER} intel)
     endif ()
 
+    if (TARGET alien_core_solvers)
+        linkLibraries(refmvhandlers.Block${BUILDER}
+                alien_core_solvers
+                )
+    endif ()
+    
     if (TARGET alien_external_packages)
         linkLibraries(refmvhandlers.Block${BUILDER}
                 alien_external_packages
@@ -51,6 +57,12 @@ foreach (BUILDER VBlockStream)
 
     addSources(refmvhandlers.${BUILDER} ${BUILDER}.cpp BuilderTestVBlockFramework.cpp)
 
+    if (TARGET alien_core_solvers)
+        linkLibraries(refmvhandlers.${BUILDER}
+                alien_core_solvers
+                )
+    endif ()
+    
     if (TARGET alien_external_packages)
         linkLibraries(refmvhandlers.${BUILDER}
                 alien_external_packages
@@ -208,6 +220,24 @@ foreach (REFMVTESTS
                 --block-size=5
                 --output-level=1
         )
+
+        alien_test(
+                BENCH refmvhandlers.block
+                NAME ${REFMVTESTS}.mcgsolver_gpu
+                PROCS 4
+                COMMAND refmvhandlers.Block${REFMVTESTS}
+                OPTIONS
+                --size=100
+                --solver-package=mcgsolver
+                --solver=bicgstab
+                --precond=none
+                --tol=1.e-10
+                --max-iter=100
+                --kernel=gpu_cublas_bcsp
+                --block-size=5
+                --output-level=2
+        )
+
     endif ()
 
     if (TARGET mtl)

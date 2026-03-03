@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* CartesianPatch.h                                            (C) 2000-2025 */
+/* CartesianPatch.h                                            (C) 2000-2026 */
 /*                                                                           */
 /* Patch AMR d'un maillage cartésien.                                        */
 /*---------------------------------------------------------------------------*/
@@ -51,18 +51,35 @@ class ARCANE_CARTESIANMESH_EXPORT CartesianPatch
 
  public:
 
-  //! Groupe de mailles du patch
-  CellGroup cells();
+  //! Groupe de mailles du patch (incluant les mailles de recouvrement).
+  CellGroup cells() const;
 
-  Integer index() const
-  {
-    ARCANE_CHECK_POINTER(m_patch);
-    return m_patch->index();
-  }
+  /*!
+   * \brief Groupe de mailles du patch (sans les mailles de recouvrement).
+   *
+   * Valide uniquement avec l'AMR type 3 (PatchCartesianMeshOnly).
+   */
+  CellGroup inPatchCells() const;
+
+  /*!
+   * \brief Groupe de mailles de recouvrement du patch.
+   *
+   * Valide uniquement avec l'AMR type 3 (PatchCartesianMeshOnly).
+   */
+  CellGroup overlapCells() const;
+
+  //! Index du patch dans le tableau des patchs.
+  Integer index() const;
+
+  /*!
+   * \brief Niveau du patch.
+   *
+   * Valide uniquement avec l'AMR type 3 (PatchCartesianMeshOnly).
+   */
   Integer level() const
   {
     ARCANE_CHECK_POINTER(m_patch);
-    return m_patch->level();
+    return m_patch->position().level();
   }
 
   //! Liste des mailles dans la direction \a dir
@@ -112,6 +129,18 @@ class ARCANE_CARTESIANMESH_EXPORT CartesianPatch
   {
     ARCANE_CHECK_POINTER(m_patch);
     m_patch->checkValid();
+  }
+
+  /*!
+   * \brief Méthode permettant de récupérer la position du patch dans le
+   * maillage cartesien.
+   *
+   * \return Une copie de la position.
+   */
+  AMRPatchPosition position() const
+  {
+    ARCANE_CHECK_POINTER(m_patch);
+    return m_patch->position();
   }
 
   //! Indique si le patch est nul.

@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* Test.cu                                                     (C) 2000-2025 */
+/* Test.cu                                                     (C) 2000-2026 */
 /*                                                                           */
 /* Fichier contenant les tests pour l'implémentation CUDA.                   */
 /*---------------------------------------------------------------------------*/
@@ -28,7 +28,7 @@
 #include "arcane/accelerator/core/Runner.h"
 #include "arcane/accelerator/core/RunQueue.h"
 
-#include "arcane/accelerator/cuda/CudaAccelerator.h"
+#include "arccore/accelerator_native/CudaAccelerator.h"
 #include "arcane/accelerator/RunCommandLoop.h"
 
 using namespace Arccore;
@@ -242,7 +242,7 @@ int arcaneTestCuda3()
 {
   std::cout << "TEST_CUDA_3\n";
   constexpr int vsize = 2000;
-  IMemoryAllocator* cuda_allocator = Arcane::Accelerator::Cuda::getCudaMemoryAllocator();
+  IMemoryAllocator* cuda_allocator = MemoryUtils::getAllocator(Arcane::eMemoryResource::UnifiedMemory);
   IMemoryAllocator* cuda_allocator2 = MemoryUtils::getDefaultDataAllocator();
   if (!cuda_allocator2)
     ARCANE_FATAL("platform::getAcceleratorHostMemoryAllocator() is null");

@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2022 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* ApplicationBuildInfo.h                                      (C) 2000-2022 */
+/* ApplicationBuildInfo.h                                      (C) 2000-2026 */
 /*                                                                           */
 /* Informations pour construire une instance de IApplication.                */
 /*---------------------------------------------------------------------------*/
@@ -15,6 +15,7 @@
 /*---------------------------------------------------------------------------*/
 
 #include "arcane/utils/UtilsTypes.h"
+#include "arccore/common/ArccoreApplicationBuildInfo.h"
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -29,8 +30,10 @@ class CaseDatasetSource;
  * \brief Informations pour construire une instance de IApplication.
  */
 class ARCANE_CORE_EXPORT ApplicationBuildInfo
+: public ArccoreApplicationBuildInfo
 {
   class Impl;
+
  public:
 
   ApplicationBuildInfo();
@@ -42,17 +45,6 @@ class ARCANE_CORE_EXPORT ApplicationBuildInfo
 
   void setMessagePassingService(const String& name);
   String messagePassingService() const;
-
-  void setTaskImplementationService(const String& name);
-  void setTaskImplementationServices(const StringList& names);
-  StringList taskImplementationServices() const;
-
-  void setThreadImplementationService(const String& name);
-  void setThreadImplementationServices(const StringList& names);
-  StringList threadImplementationServices() const;
-
-  Int32 nbTaskThread() const;
-  void setNbTaskThread(Integer v);
 
   Int32 nbSharedMemorySubDomain() const;
   void setNbSharedMemorySubDomain(Int32 v);
@@ -161,7 +153,6 @@ class ARCANE_CORE_EXPORT ApplicationBuildInfo
 
  public:
 
-  void addParameter(const String& name,const String& value);
   /*!
    * \brief Analyse les arguments de \a args.
    *
@@ -169,7 +160,11 @@ class ARCANE_CORE_EXPORT ApplicationBuildInfo
    * La méthode setDefaultValues() est appelée à la fin de cette
    * méthode.
    */
-  void parseArguments(const CommandLineArguments& args);
+  ARCANE_DEPRECATED_REASON("Use parseArgumentsAndSetDefaultsValues() instead")
+  void parseArguments(const CommandLineArguments& args)
+  {
+    parseArgumentsAndSetDefaultsValues(args);
+  }
 
  public:
 
@@ -178,12 +173,12 @@ class ARCANE_CORE_EXPORT ApplicationBuildInfo
 
  public:
 
-  void setDefaultValues();
-  void setDefaultServices();
+  void setDefaultValues() override;
+  void setDefaultServices() override;
 
  private:
 
-  Impl* m_p;
+  Impl* m_p = nullptr;
 };
 
 /*---------------------------------------------------------------------------*/

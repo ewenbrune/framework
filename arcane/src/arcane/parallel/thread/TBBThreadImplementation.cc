@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2025 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* TBBThreadImplementation.cc                                  (C) 2000-2025 */
+/* TBBThreadImplementation.cc                                  (C) 2000-2026 */
 /*                                                                           */
 /* Implémentation des threads utilisant TBB (Intel Threads Building Blocks). */
 /*---------------------------------------------------------------------------*/
@@ -17,25 +17,20 @@
 #include "arcane/utils/IFunctor.h"
 #include "arcane/utils/Mutex.h"
 #include "arcane/utils/PlatformUtils.h"
-#include "arcane/utils/internal/DependencyInjection.h"
-
-#include "arcane/FactoryService.h"
-#include "arcane/Concurrency.h"
+#include "arccore/base/internal/DependencyInjection.h"
 
 #include "arcane/parallel/thread/ArcaneThreadMisc.h"
 
 #include <tbb/tbb.h>
-#if TBB_VERSION_MAJOR >= 2020
 #define ARCANE_TBB_USE_STDTHREAD
 #include <thread>
-#else
-#include <tbb/tbb_thread.h>
-#include <tbb/atomic.h>
-#include <tbb/mutex.h>
-#endif
-
 #include <mutex>
 #include <new>
+
+// NOTE:
+// Cette implémentation n'est plus l'implémentation par défaut depuis fin 2025.
+// L'implémentation par défaut est maintenant celle utilise la STL.
+// Si tout est OK on pourra supprimer cette implémentation fin 2026 par exemple.
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -46,7 +41,6 @@ namespace Arcane
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
-#ifdef ARCANE_TBB_USE_STDTHREAD
 typedef std::thread::id ThreadId;
 typedef std::thread ThreadType;
 // Essaie de convertir un std::thread::id en un 'Int64'.
@@ -55,29 +49,9 @@ typedef std::thread ThreadType;
 // la méthode IThreadImplementation::currentThread().
 inline Int64 arcaneGetThisThreadId()
 {
-  Int64 v = std::hash<std::thread::id>{}(std::this_thread::get_id());
+  Int64 v = static_cast<Int64>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
   return v;
 }
-#else
-struct ThreadId
-{
- public:
-#if defined(_WIN32) || defined(_WIN64)
-  DWORD my_id;
-#else
-  pthread_t my_id;
-#endif // _WIN32||_WIN64
-};
-
-typedef tbb::tbb_thread ThreadType;
-inline Int64 arcaneGetThisThreadId()
-{
-  ThreadType::id i = tbb::this_tbb_thread::get_id();
-  ThreadId* t = (ThreadId*)(&i);
-  Int64 v = Int64(t->my_id);
-  return v;
-}
-#endif
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
@@ -104,19 +78,19 @@ class TBBBarrier
 : public IThreadBarrier
 {
  public:
-  TBBBarrier()
-  : m_nb_thread(0) {}
 
-  virtual void destroy(){ delete this; }
+  TBBBarrier() = default;
 
-  virtual void init(Integer nb_thread)
+  void destroy() override { delete this; }
+
+  void init(Integer nb_thread) override
   {
     m_nb_thread = nb_thread;
     m_nb_thread_finished = 0;
     m_timestamp = 0;
   };
 
-  virtual bool wait()
+  void wait() override
   {
     Int32 ts = m_timestamp;
     int remaining_thread = m_nb_thread - m_nb_thread_finished.fetch_add(1) - 1;
@@ -134,17 +108,16 @@ class TBBBarrier
         // d'itérations.
         }
       }
-
-      return false;
     }
     m_nb_thread_finished = 0;
     ++m_timestamp;
-    return true;
   }
+
  private:
-  Int32 m_nb_thread;
-  std::atomic<Int32> m_nb_thread_finished;
-  std::atomic<Int32> m_timestamp;
+
+  Int32 m_nb_thread = 0;
+  std::atomic<Int32> m_nb_thread_finished = 0;
+  std::atomic<Int32> m_timestamp = 0;
 };
 
 /*---------------------------------------------------------------------------*/
@@ -172,16 +145,17 @@ class TBBThreadImplementation
   class StartFunc
   {
    public:
-    StartFunc(IFunctor* f) : m_f(f){}
-    void operator()() { m_f->executeFunctor(); }
-    IFunctor* m_f;
+
+    explicit StartFunc(IFunctor* f)
+    : m_f(f)
+    {}
+    void operator()() const { m_f->executeFunctor(); }
+    IFunctor* m_f = nullptr;
   };
 
  public:
 
   TBBThreadImplementation()
-  : m_use_tbb_barrier(false)
-  , m_global_mutex_impl(nullptr)
   {
     if (!platform::getEnvironmentVariable("ARCANE_SPINLOCK_BARRIER").null())
       m_use_tbb_barrier = true;
@@ -216,12 +190,12 @@ class TBBThreadImplementation
   }
   void joinThread(ThreadImpl* t) override
   {
-    ThreadType* tt = reinterpret_cast<ThreadType*>(t);
+    auto* tt = reinterpret_cast<ThreadType*>(t);
     tt->join();
   }
   void destroyThread(ThreadImpl* t) override
   {
-    ThreadType* tt = reinterpret_cast<ThreadType*>(t);
+    auto* tt = reinterpret_cast<ThreadType*>(t);
     delete tt;
   }
 
@@ -232,36 +206,36 @@ class TBBThreadImplementation
   }
   void lockSpinLock(Int64* spin_lock_addr,Int64* scoped_spin_lock_addr) override
   {
-    tbb::spin_mutex* s = reinterpret_cast<tbb::spin_mutex*>(spin_lock_addr);
-    tbb::spin_mutex::scoped_lock* sl = new (scoped_spin_lock_addr) tbb::spin_mutex::scoped_lock();
+    auto* s = reinterpret_cast<tbb::spin_mutex*>(spin_lock_addr);
+    auto* sl = new (scoped_spin_lock_addr) tbb::spin_mutex::scoped_lock();
     sl->acquire(*s);
   }
   void unlockSpinLock(Int64* spin_lock_addr,Int64* scoped_spin_lock_addr) override
   {
     ARCANE_UNUSED(spin_lock_addr);
-    tbb::spin_mutex::scoped_lock* s = reinterpret_cast<tbb::spin_mutex::scoped_lock*>(scoped_spin_lock_addr);
+    auto* s = reinterpret_cast<tbb::spin_mutex::scoped_lock*>(scoped_spin_lock_addr);
     s->release();
     //TODO: detruire le scoped_lock.
   }
   
   MutexImpl* createMutex() override
   {
-    TBBMutexImpl* m = new TBBMutexImpl();
+    auto* m = new TBBMutexImpl();
     return reinterpret_cast<MutexImpl*>(m);
   }
   void destroyMutex(MutexImpl* mutex) override
   {
-    TBBMutexImpl* tm = reinterpret_cast<TBBMutexImpl*>(mutex);
+    auto* tm = reinterpret_cast<TBBMutexImpl*>(mutex);
     delete tm;
   }
   void lockMutex(MutexImpl* mutex) override
   {
-    TBBMutexImpl* tm = reinterpret_cast<TBBMutexImpl*>(mutex);
+    auto* tm = reinterpret_cast<TBBMutexImpl*>(mutex);
     tm->lock();
   }
   void unlockMutex(MutexImpl* mutex) override
   {
-    TBBMutexImpl* tm = reinterpret_cast<TBBMutexImpl*>(mutex);
+    auto* tm = reinterpret_cast<TBBMutexImpl*>(mutex);
     tm->unlock();
   }
 
@@ -273,9 +247,9 @@ class TBBThreadImplementation
 
   IThreadBarrier* createBarrier() override
   {
-    // Il faut utiliser les TBB uniquement si demandé car il utilise
+    // Il faut utiliser les TBB uniquement si demandé, car il utilise
     // l'attente active ce qui peut vite mettre la machine à genoux
-    // si le nombre de thread total est supérieur au nombre de coeurs
+    // si le nombre de threads total est supérieur au nombre de cœurs
     // de la machine.
     if (m_use_tbb_barrier)
       return new TBBBarrier();
@@ -284,8 +258,8 @@ class TBBThreadImplementation
 
  private:
 
-  bool m_use_tbb_barrier;
-  MutexImpl* m_global_mutex_impl;
+  bool m_use_tbb_barrier = false;
+  MutexImpl* m_global_mutex_impl = nullptr;
   Ref<IThreadImplementation> m_std_thread_implementation;
 };
 
@@ -297,7 +271,6 @@ class TBBThreadImplementationService
 {
  public:
 
-  explicit TBBThreadImplementationService(const ServiceBuildInfo&) {}
   TBBThreadImplementationService() = default;
 
  public:
@@ -312,11 +285,6 @@ class TBBThreadImplementationService
 
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
-
-// TODO: a supprimer maintenant qu'on utilise 'DependencyInjection'
-ARCANE_REGISTER_SERVICE(TBBThreadImplementationService,
-                        ServiceProperty("TBBThreadImplementationService",ST_Application),
-                        ARCANE_SERVICE_INTERFACE(IThreadImplementationService));
 
 ARCANE_DI_REGISTER_PROVIDER(TBBThreadImplementationService,
                             DependencyInjection::ProviderProperty("TBBThreadImplementationService"),

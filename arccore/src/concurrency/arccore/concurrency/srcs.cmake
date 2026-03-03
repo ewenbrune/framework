@@ -1,0 +1,24 @@
+set(SOURCES
+  ConcurrencyGlobal.h
+  ConcurrencyGlobal.cc
+  ConcurrencyUtils.cc
+  ConcurrencyApplication.cc
+  ITaskImplementation.h
+  IThreadImplementation.h
+  IThreadImplementationService.h
+  IThreadBarrier.h
+  ParallelFor.h
+  Mutex.h
+  Mutex.cc
+  NullThreadImplementation.h
+  SpinLock.h
+  SpinLock.cc
+  StdThreadImplementation.cc
+  StdThreadImplementationService.cc
+  Task.h
+  TaskFactory.h
+
+  internal/ConcurrencyGlobalInternal.h
+  internal/ConcurrencyApplication.h
+  internal/TaskFactoryInternal.h
+)

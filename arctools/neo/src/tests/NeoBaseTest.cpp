@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2023 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* NeoBaseTest.cpp                                 (C) 2000-2023             */
+/* NeoBaseTest.cpp                                 (C) 2000-2026             */
 /*                                                                           */
 /* Base tests for Neo kernel                                                 */
 /*---------------------------------------------------------------------------*/
@@ -109,7 +109,7 @@ TEST(NeoTestItemRange, test_item_range) {
     local_ids.push_back(item);
   }
   auto local_ids_stored = ir.localIds();
-  std::cout << local_ids_stored << std::endl;
+  Neo::printer() << local_ids_stored << Neo::endline;
   EXPECT_TRUE(std::equal(local_ids_stored.begin(), local_ids_stored.end(), local_ids.begin()));
   local_ids.clear();
   // Test with only non contiguous local ids
@@ -123,7 +123,7 @@ TEST(NeoTestItemRange, test_item_range) {
     local_ids.push_back(item);
   }
   local_ids_stored = ir.localIds();
-  std::cout << local_ids_stored << std::endl;
+  Neo::printer() << local_ids_stored << Neo::endline;
   EXPECT_TRUE(std::equal(local_ids_stored.begin(), local_ids_stored.end(), local_ids.begin()));
   local_ids.clear();
   // Test range mixing contiguous and non contiguous local ids
@@ -138,7 +138,7 @@ TEST(NeoTestItemRange, test_item_range) {
     local_ids.push_back(item);
   }
   local_ids_stored = ir.localIds();
-  std::cout << local_ids_stored << std::endl;
+  Neo::printer() << local_ids_stored << Neo::endline;
   EXPECT_TRUE(std::equal(local_ids_stored.begin(), local_ids_stored.end(), local_ids.begin()));
   local_ids.clear();
   // Internal test for out of bound
@@ -164,17 +164,21 @@ TEST(NeoTestItemRange, test_item_range) {
 
 TEST(NeoTestFutureItemRange, test_future_item_range) {
   Neo::FutureItemRange future_item_range{};
+  EXPECT_EQ(future_item_range.size(), 0);
   // Manually fill contained ItemRange
   std::vector<Neo::utils::Int32> lids{ 0, 2, 4, 6 };
   future_item_range.new_items = Neo::ItemRange{ Neo::ItemLocalIds{ lids } };
+  EXPECT_EQ(future_item_range.size(), lids.size());
   Neo::ItemRange& internal_range = future_item_range;
   EXPECT_EQ(&future_item_range.new_items, &internal_range);
-  auto end_update = Neo::EndOfMeshUpdate{};
+  Neo::MeshKernel::AlgorithmPropertyGraph mock_mesh_kernel;
+  auto end_update = mock_mesh_kernel.applyAlgorithms();
   {
     // declare a filtered range -- filtered by indexes
     std::vector<int> filter{ 0, 1, 2 };
     auto filtered_future_range =
     Neo::make_future_range(future_item_range, filter);
+    EXPECT_EQ(filtered_future_range.size(), 0);
     // Get item_ranges
     auto filtered_range = filtered_future_range.get(end_update);
     auto item_range = future_item_range.get(end_update);
@@ -204,6 +208,46 @@ TEST(NeoTestFutureItemRange, test_future_item_range) {
     auto filtered_range_lids = filtered_range.localIds();
     EXPECT_TRUE(std::equal(value_subset.begin(), value_subset.end(), filtered_range_lids.begin()));
   }
+}
+
+/*-----------------------------------------------------------------------------*/
+
+TEST(NeoBaseClassTest,AlgorithmHandlerTest) {
+  std::cout << "Test AlgorithmHandler" << std::endl;
+  // Test AlgoHandler
+  auto algo = [](Neo::MeshKernel::InProperty prop_in, Neo::MeshKernel::OutProperty prop_out) {};
+  Neo::Family cell_family{ Neo::ItemKind::IK_Cell, "cells" };
+  Neo::MeshKernel::AlgoHandler<decltype(algo)> algorithm_handler{ Neo::MeshKernel::InProperty{cell_family,"in_prop1"},
+    Neo::MeshKernel::OutProperty{cell_family,"out_prop1"}, (std::move(algo)) };
+  EXPECT_EQ(algorithm_handler.nbInProperties(),1);
+  EXPECT_EQ(algorithm_handler.nbOutProperties(),1);
+  // Test DalInAlgoHandler (2 input prop, one output) with family and property
+  auto algo2 = [](Neo::MeshKernel::InProperty prop_in1, Neo::MeshKernel::InProperty prop_in2, Neo::MeshKernel::OutProperty prop_out) {};
+  Neo::MeshKernel::DualInAlgoHandler<decltype(algo2)> algorithm_handler2{ Neo::MeshKernel::InProperty{cell_family,"in_prop1"},
+    Neo::MeshKernel::InProperty{cell_family,"in_prop2"},
+    Neo::MeshKernel::OutProperty{cell_family,"out_prop"}, (std::move(algo2)) };
+  EXPECT_EQ(algorithm_handler2.nbInProperties(),2);
+  EXPECT_EQ(algorithm_handler2.nbOutProperties(),1);
+  // Test DalOutAlgoHandler (1 input prop, 2 output) with family and property
+  auto algo3 = [](Neo::MeshKernel::InProperty prop_in1, Neo::MeshKernel::OutProperty prop_inout1, Neo::MeshKernel::OutProperty prop_out2) {};
+  Neo::MeshKernel::DualOutAlgoHandler<decltype(algo3)> algorithm_handler3{ Neo::MeshKernel::InProperty{cell_family,"in_prop1"},
+    Neo::MeshKernel::OutProperty{cell_family,"out_prop1"},
+    Neo::MeshKernel::OutProperty{cell_family,"out_prop2"}, (std::move(algo3)) };
+  EXPECT_EQ(algorithm_handler3.nbInProperties(),1);
+  EXPECT_EQ(algorithm_handler3.nbOutProperties(),2);
+  // Test NoDepsAlgoHandler (0 input prop, 1 output) with family and property
+  auto algo4 = [](Neo::MeshKernel::OutProperty prop_out) {};
+  Neo::MeshKernel::NoDepsAlgoHandler<decltype(algo4)> algorithm_handler4{
+    Neo::MeshKernel::OutProperty{cell_family,"out_prop1"}, (std::move(algo4)) };
+  EXPECT_EQ(algorithm_handler4.nbInProperties(),0);
+  EXPECT_EQ(algorithm_handler4.nbOutProperties(),1);
+  // Test NoDepsDualoutAlgoHandler (0 input prop, 2 output) with family and property
+  auto algo5 = [](Neo::MeshKernel::OutProperty prop_out1,Neo::MeshKernel::OutProperty prop_out2) {};
+  Neo::MeshKernel::NoDepsDualOutAlgoHandler<decltype(algo5)> algorithm_handler5{
+    Neo::MeshKernel::OutProperty{cell_family,"out_prop1"},
+    Neo::MeshKernel::OutProperty{cell_family,"out_prop2"}, (std::move(algo5)) };
+  EXPECT_EQ(algorithm_handler5.nbInProperties(),0);
+  EXPECT_EQ(algorithm_handler5.nbOutProperties(),2);
 }
 
 /*-----------------------------------------------------------------------------*/
@@ -261,6 +305,8 @@ TEST(NeoTestLidsProperty, test_lids_property) {
   auto added_item_range = lid_prop.append(uids);
   lid_prop.debugPrint();
   EXPECT_EQ(uids.size(), lid_prop.size());
+  EXPECT_EQ(uids.size(), added_item_range.size());
+  Neo::printer() << added_item_range << Neo::endline;
   auto i = 0;
   auto added_local_ids = lid_prop[uids];
   auto added_local_ids_ref = added_item_range.localIds();
@@ -281,6 +327,7 @@ TEST(NeoTestLidsProperty, test_lids_property) {
   added_item_range = lid_prop.append(uids);
   lid_prop.debugPrint();
   i = 0;
+  Neo::printer() << added_item_range << Neo::endline;
   for (auto item : added_item_range) {
     std::cout << " uid " << uids[i++] << " lid " << item << std::endl;
   }
@@ -343,7 +390,38 @@ TEST(NeoTestLidsProperty, test_lids_property) {
   std::set<Neo::utils::Int32> reordered_lids{ lids.begin(), lids.end() };
   EXPECT_EQ(reordered_lids_ref.size(), reordered_lids.size());
   EXPECT_TRUE(std::equal(reordered_lids_ref.begin(), reordered_lids_ref.end(), reordered_lids.begin()));
+  // Check add existing + new: ensure empty lids are taken, even if adding more existing than empty lids
+  std::vector<Neo::utils::Int64> test_uids{ 11, 12 };
+  lid_prop.remove(test_uids);
+  lid_prop.debugPrint();
+  lid_prop.append({1,2,11,12});
+  lid_prop.debugPrint();
+  std::vector<int> expected_lids{11,10}; // should use empty lids
+  auto new_lids = lid_prop[test_uids];
+  Neo::printer() << "new lids: " << new_lids << Neo::endline;
+  EXPECT_TRUE(std::equal(expected_lids.begin(),expected_lids.end(),new_lids.begin()));
 }
+
+/*-----------------------------------------------------------------------------*/
+
+TEST(NeoTestLidsProperty, test_lids_property_use_available_lids) {
+  std::cout << "Test lids_range Property use available lids" << std::endl;
+  auto lid_prop = Neo::ItemLidsProperty{ "test_property" };
+  std::vector<Neo::utils::Int64> uids{ 0, 1, 2, 3, 4};
+  auto added_item_range = lid_prop.append(uids);
+  Neo::printer() << added_item_range;
+  std::copy(added_item_range.m_item_lids.m_non_contiguous_lids.begin(),added_item_range.m_item_lids.m_non_contiguous_lids.end(),std::ostream_iterator<int>(std::cout,", "));
+  std::cout << std::endl;
+  std::cout << added_item_range.m_item_lids.m_nb_contiguous_lids << std::endl;
+  std::cout << added_item_range.m_item_lids.m_first_contiguous_lid << std::endl;
+  lid_prop.remove({0,1});
+  added_item_range = lid_prop.append({2,3,4,5,6});
+  Neo::printer() << added_item_range;
+  std::vector<int> expected_lids{2,3,4,1,0};
+  EXPECT_TRUE(std::equal(expected_lids.begin(),expected_lids.end(),added_item_range.localIds().begin()));
+  lid_prop.debugPrint();
+}
+
 
 /*-----------------------------------------------------------------------------*/
 

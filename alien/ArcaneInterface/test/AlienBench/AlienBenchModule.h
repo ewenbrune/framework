@@ -1,6 +1,6 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2024 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
@@ -68,6 +68,39 @@ class AlienBenchModule : public ArcaneAlienBenchObject
              Alien::Vector& coordY,
              Alien::Vector& coordZ,
              Alien::Matrix& matrixA);
+
+  void _test(Timer& pbuild_timer,
+             CellGroup& areaU,
+             CellCellGroup& cell_cell_connection,
+             CellCellGroup& all_cell_cell_connection,
+             Arccore::UniqueArray<Arccore::Integer>& allUindex,
+             Alien::BlockVector& vectorB,
+             Alien::BlockVector& vectorBB,
+             Alien::BlockVector& vectorX,
+             Alien::Vector& coordX,
+             Alien::Vector& coordY,
+             Alien::Vector& coordZ,
+             Alien::BlockMatrix& matrixA);
+
+  void _fillSystemCPU(Timer& pbuild_timer,
+                      CellCellGroup& cell_cell_connection,
+                      CellCellGroup& all_cell_cell_connection,
+                      Arccore::UniqueArray<Arccore::Integer>& allUIndex,
+                      Alien::Vector& vectorB,
+                      Alien::Vector& vectorBB,
+                      Alien::Vector& vectorX,
+                      Alien::Matrix& matrixA) ;
+
+
+  void _fillSystemCPU(Timer& pbuild_timer,
+                      CellCellGroup& cell_cell_connection,
+                      CellCellGroup& all_cell_cell_connection,
+                      Arccore::UniqueArray<Arccore::Integer>& allUIndex,
+                      Alien::BlockVector& vectorB,
+                      Alien::BlockVector& vectorBB,
+                      Alien::BlockVector& vectorX,
+                      Alien::BlockMatrix& matrixA) ;
+
 #ifdef ALIEN_USE_SYCL
   void _testSYCLWithUSM( Timer& pbuild_timer,
                          CellGroup& areaU,
@@ -93,6 +126,24 @@ class AlienBenchModule : public ArcaneAlienBenchObject
                  Alien::Vector& coordY,
                  Alien::Vector& coordZ,
                  Alien::Matrix& matrixA);
+
+  void _fillSystemSYCLWithUSM(Timer& pbuild_timer,
+                       CellCellGroup& cell_cell_connection,
+                       CellCellGroup& all_cell_cell_connection,
+                       Arccore::UniqueArray<Arccore::Integer>& allUIndex,
+                       Alien::Vector& vectorB,
+                       Alien::Vector& vectorBB,
+                       Alien::Vector& vectorX,
+                       Alien::Matrix& matrixA) ;
+
+  void _fillSystemSYCL(Timer& pbuild_timer,
+                       CellCellGroup& cell_cell_connection,
+                       CellCellGroup& all_cell_cell_connection,
+                       Arccore::UniqueArray<Arccore::Integer>& allUIndex,
+                       Alien::Vector& vectorB,
+                       Alien::Vector& vectorBB,
+                       Alien::Vector& vectorX,
+                       Alien::Matrix& matrixA) ;
 #endif
  private:
   ARCCORE_HOST_DEVICE Real funcn(Real3 x) const;
@@ -130,10 +181,10 @@ class AlienBenchModule : public ArcaneAlienBenchObject
   Arcane::Accelerator::RunQueue* m_default_queue         = nullptr;
 
 
+  VariableCellInt16 m_cell_is_own; //!< Numéro du sous-domaine associé à la maille
   UnstructuredMeshConnectivityView m_connectivity_view;
   UniqueArray<Integer> m_cell_cell_connection_index;
   UniqueArray<Integer> m_cell_cell_connection_offset;
-  VariableCellInt16 m_cell_is_own; //!< Numéro du sous-domaine associé à la maille
 #endif
 };
 

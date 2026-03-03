@@ -1,11 +1,11 @@
 ﻿// -*- tab-width: 2; indent-tabs-mode: nil; coding: utf-8-with-signature -*-
 //-----------------------------------------------------------------------------
-// Copyright 2000-2023 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
+// Copyright 2000-2026 CEA (www.cea.fr) IFPEN (www.ifpenergiesnouvelles.com)
 // See the top-level COPYRIGHT file for details.
 // SPDX-License-Identifier: Apache-2.0
 //-----------------------------------------------------------------------------
 /*---------------------------------------------------------------------------*/
-/* Family                                          (C) 2000-2023             */
+/* Family                                          (C) 2000-2026             */
 /*                                                                           */
 /* Family of mesh items                                                      */
 /*---------------------------------------------------------------------------*/
@@ -29,6 +29,8 @@ namespace Neo
 /*---------------------------------------------------------------------------*/
 /*---------------------------------------------------------------------------*/
 
+class FamilyMap;
+
 class Family
 {
  public:
@@ -38,6 +40,13 @@ class Family
   std::map<std::string, Property> m_properties;
   mutable ItemRange m_all;
 
+  friend class FamilyMap;
+
+private:
+  Family(Family const&) = default;
+  Family& operator=(Family const&) = default;
+
+public:
   Family(ItemKind ik, const std::string& name)
   : m_ik(ik)
   , m_name(name)
@@ -61,32 +70,32 @@ class Family
   void addScalarProperty(std::string const& name, T init_value = T{}) {
     auto [iter, is_inserted] = m_properties.insert(std::make_pair(name, ScalarPropertyT<T>{ name, init_value }));
     if (is_inserted)
-      Neo::print() << "Add scalar property " << name << " in Family " << m_name
-                   << std::endl;
+      Neo::printer() << "= Add scalar property " << name << " in Family " << m_name
+                   << Neo::endline;
   }
 
   template <typename T>
   void addArrayProperty(std::string const& name) {
     auto [iter, is_inserted] = m_properties.insert(std::make_pair(name, ArrayPropertyT<T>{ name }));
     if (is_inserted)
-      Neo::print() << "Add scalar property " << name << " in Family " << m_name
-                   << std::endl;
+      Neo::printer() << "= Add scalar property " << name << " in Family " << m_name
+                   << Neo::endline;
   }
 
   template <typename T>
   void addMeshScalarProperty(std::string const& name) {
     auto [iter, is_inserted] = m_properties.insert(std::make_pair(name, MeshScalarPropertyT<T>{ name }));
     if (is_inserted)
-      Neo::print() << "Add property " << name << " in Family " << m_name
-                   << std::endl;
+      Neo::printer() << "= Add property " << name << " in Family " << m_name
+                   << Neo::endline;
   }
 
   template <typename T>
   void addMeshArrayProperty(std::string const& name) {
     auto [iter, is_inserted] = m_properties.insert(std::make_pair(name, MeshArrayPropertyT<T>{ name }));
     if (is_inserted)
-      Neo::print() << "Add array property " << name << " in Family " << m_name
-                   << std::endl;
+      Neo::printer() << "= Add array property " << name << " in Family " << m_name
+                   << Neo::endline;
   }
 
   void removeProperty(std::string const& name) {
@@ -207,7 +216,7 @@ class FamilyMap
     return *(found_family->second.get());
   }
   Family& push_back(ItemKind const& ik, std::string const& name) {
-    return *(m_families.emplace(std::make_pair(ik, name), std::make_unique<Family>(Family(ik, name))).first->second.get());
+    return *(m_families.emplace(std::make_pair(ik, name), std::make_unique<Family>(ik, name)).first->second.get());
   }
 
   auto begin() noexcept { return m_families.begin(); }

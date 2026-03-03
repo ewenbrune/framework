@@ -140,11 +140,11 @@ createMesh(const String& default_name)
 
   ARCANE_CHECK_POINTER(m_mesh_builder);
 
-  // Indique si les entités multi-dimension sont autorisées
-  bool is_non_manifold = options()->nonManifoldMesh;
-  if (is_non_manifold) {
+  // Indique la gestion des dimensions des mailles
+  eMeshCellDimensionKind mesh_dim_kind = options()->cellDimensionKind();
+  if (mesh_dim_kind != build_info.meshKind().meshDimensionKind()) {
     MeshKind mesh_kind = build_info.meshKind();
-    mesh_kind.setIsNonManifold(true);
+    mesh_kind.setMeshDimensionKind(mesh_dim_kind);
     build_info.addMeshKind(mesh_kind);
   }
 
@@ -431,6 +431,13 @@ _setUniqueIdNumberingVersion()
     info() << "Set face uniqueId numbering version to '" << v << "' from caseoption";
     IMeshUniqueIdMng* mum = m_mesh->meshUniqueIdMng();
     mum->setFaceBuilderVersion(v);
+  }
+
+  if (options()->edgeNumberingVersion.isPresent()) {
+    Int32 v = options()->edgeNumberingVersion.value();
+    info() << "Set edge uniqueId numbering version to '" << v << "' from caseoption";
+    IMeshUniqueIdMng* mum = m_mesh->meshUniqueIdMng();
+    mum->setEdgeBuilderVersion(v);
   }
 }
 
